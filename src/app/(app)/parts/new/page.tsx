@@ -20,6 +20,7 @@ export default async function NewPartPage() {
         nameEn: "",
         brand: "",
         category: "",
+        dimensions: "",
         purchasePrice: "",
         salePrice: "",
         imageUrl: "",

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useI18n } from "@/lib/i18n/client";
 import { formatDA } from "@/lib/format";
-import { IconCar, IconParts, IconPin, IconPrinter, IconTruck } from "@/components/icons";
+import { IconCar, IconEdit, IconParts, IconPin, IconPrinter, IconRuler, IconTransfer, IconTrash, IconTruck } from "@/components/icons";
+import { deletePartFromList } from "./actions";
 
 export type PartRow = {
   id: string;
@@ -13,6 +14,7 @@ export type PartRow = {
   reference: string;
   brand: string;
   category: string;
+  dimensions: string;
   vehicles: { type: "CAR" | "TRUCK"; label: string }[];
   moreVehicles: number;
   quantity: number;
@@ -20,20 +22,28 @@ export type PartRow = {
   location: string;
   salePrice: number;
   imageUrl: string;
+  storeStocks: { storeId: string; storeName: string; quantity: number; status: "ok" | "low" | "out" }[];
 };
 
 export default function PartsTable({
   rows,
   showLocation,
   hasQuery,
+  canEdit,
+  canDelete,
+  canTransfer,
 }: {
   rows: PartRow[];
   showLocation: boolean;
   hasQuery: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canTransfer: boolean;
 }) {
   const { t, lang } = useI18n();
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pending, startTransition] = useTransition();
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -58,7 +68,7 @@ export default function PartsTable({
   }
 
   return (
-    <div className="card">
+    <div className="card" style={{ opacity: pending ? 0.7 : 1 }}>
       {selected.size > 0 && (
         <div className="card-head fade-in" style={{ background: "var(--orange-50)" }}>
           <span>
@@ -94,6 +104,7 @@ export default function PartsTable({
               {showLocation && <th>{t.parts.location}</th>}
               <th className="end">{t.parts.salePrice}</th>
               <th className="end">{t.parts.quantity}</th>
+              {canEdit && <th className="end">{t.common.actions}</th>}
             </tr>
           </thead>
           <tbody>
@@ -132,8 +143,26 @@ export default function PartsTable({
                       <div className="part-sub">
                         <span className="ref">{r.reference}</span>
                         {r.brand && <span className="badge">{r.brand}</span>}
+                        {r.dimensions && (
+                          <span className="chip mono" dir="ltr">
+                            <IconRuler />
+                            {r.dimensions}
+                          </span>
+                        )}
                         {r.category && <span>{r.category}</span>}
                       </div>
+                      {r.storeStocks.length > 1 && (
+                        <div className="row" style={{ gap: 4, marginTop: 4 }}>
+                          {r.storeStocks.map((st) => (
+                            <span
+                              key={st.storeId}
+                              className={`badge ${st.status === "out" ? "badge-out" : st.status === "low" ? "badge-low" : "badge-ok"}`}
+                            >
+                              {st.storeName}: <span className="num">{st.quantity}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -178,6 +207,48 @@ export default function PartsTable({
                     <span className={`qty num ${r.status === "ok" ? "" : `is-${r.status}`}`}>{r.quantity}</span>
                   </div>
                 </td>
+                {canEdit && (
+                  <td className="end" data-label={t.common.actions}>
+                    <div className="row" style={{ gap: 6, justifyContent: "flex-end", flexWrap: "nowrap" }}>
+                      <Link
+                        href={`/parts/${r.id}/edit`}
+                        className="btn btn-secondary btn-icon btn-sm"
+                        title={t.common.edit}
+                        aria-label={t.common.edit}
+                      >
+                        <IconEdit />
+                      </Link>
+                      {canTransfer && (
+                        <Link
+                          href={`/transfers/new?partId=${r.id}`}
+                          className="btn btn-secondary btn-icon btn-sm"
+                          title={t.parts.transferPart}
+                          aria-label={t.parts.transferPart}
+                        >
+                          <IconTransfer />
+                        </Link>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-icon btn-sm"
+                          title={t.common.delete}
+                          aria-label={t.common.delete}
+                          disabled={pending}
+                          onClick={() => {
+                            if (confirm(t.partView.deleteConfirm)) {
+                              startTransition(async () => {
+                                await deletePartFromList(r.id);
+                              });
+                            }
+                          }}
+                        >
+                          <IconTrash />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

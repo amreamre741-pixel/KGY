@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { can, requireUser } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
-import { normalizeRef } from "@/lib/search";
+import { normalizeDim, normalizeRef } from "@/lib/search";
 import { generateBarcode } from "@/lib/barcode";
 
 export type FormState = { error?: string; ok?: boolean } | undefined;
@@ -21,6 +21,7 @@ type PartPayload = {
   nameEn: string;
   brand: string;
   category: string;
+  dimensions?: string;
   purchasePrice: string;
   salePrice: string;
   imageUrl?: string;
@@ -72,6 +73,7 @@ export async function savePart(_prev: FormState, formData: FormData): Promise<Fo
   const brand = str(p.brand, 80);
   const barcodeInput = str(p.barcode, 64);
   const categoryName = str(p.category, 80);
+  const dimensions = str(p.dimensions, 100);
 
   const compat = (Array.isArray(p.compat) ? p.compat : [])
     .map((c) => ({
@@ -130,6 +132,8 @@ export async function savePart(_prev: FormState, formData: FormData): Promise<Fo
     nameEn: str(p.nameEn),
     brand,
     categoryId,
+    dimensions,
+    dimNorm: normalizeDim(dimensions),
     purchasePrice: new Prisma.Decimal(purchasePrice.toFixed(2)),
     salePrice: new Prisma.Decimal(salePrice.toFixed(2)),
     imageUrl: safeImageUrl(p.imageUrl),
@@ -200,6 +204,16 @@ export async function deletePart(partId: string) {
   revalidatePath("/parts");
   revalidatePath("/");
   redirect("/parts");
+}
+
+export async function deletePartFromList(partId: string): Promise<{ ok?: boolean }> {
+  const user = await requireUser();
+  if (user.role !== "OWNER") return {};
+  await db.part.delete({ where: { id: partId } }).catch(() => {});
+  revalidatePath("/parts");
+  revalidatePath("/alerts");
+  revalidatePath("/");
+  return { ok: true };
 }
 
 export async function adjustStock(_prev: FormState, formData: FormData): Promise<FormState> {

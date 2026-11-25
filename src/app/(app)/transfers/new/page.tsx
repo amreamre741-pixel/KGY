@@ -8,10 +8,15 @@ import TransferFormClient from "./TransferFormClient";
 
 export const metadata: Metadata = { title: "تحويل جديد" };
 
-export default async function NewTransferPage() {
+export default async function NewTransferPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ partId?: string; to?: string }>;
+}) {
   const user = await requireUser();
   if (!can.editParts(user)) redirect("/");
   const { lang } = await getI18n();
+  const sp = await searchParams;
 
   const [allStores, parts] = await Promise.all([
     db.store.findMany({ where: { active: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } }),
@@ -33,6 +38,8 @@ export default async function NewTransferPage() {
     <TransferFormClient
       fromStores={fromStores}
       allStores={allStores}
+      initialPartId={sp.partId ?? ""}
+      initialToStoreId={sp.to ?? ""}
       parts={parts.map((p) => ({
         id: p.id,
         name: partName(p, lang),
@@ -40,6 +47,8 @@ export default async function NewTransferPage() {
         refNorm: p.refNorm,
         barcode: p.barcode ?? "",
         brand: p.brand,
+        dimensions: p.dimensions,
+        dimNorm: p.dimNorm,
         stocks: Object.fromEntries(p.stocks.map((s) => [s.storeId, { qty: s.quantity, loc: s.location }])),
       }))}
     />

@@ -20,6 +20,7 @@ export type PartFormInitial = {
   nameEn: string;
   brand: string;
   category: string;
+  dimensions: string;
   purchasePrice: string;
   salePrice: string;
   imageUrl: string;
@@ -216,6 +217,20 @@ export default function PartForm({
               ))}
             </datalist>
             <span className="hint">{t.partForm.categoryHint}</span>
+          </div>
+          <div className="field">
+            <label className="label" htmlFor="dimensions">
+              {t.partForm.dimensions} <span className="opt">({t.common.optional})</span>
+            </label>
+            <input
+              className="input mono"
+              id="dimensions"
+              value={f.dimensions}
+              onChange={set("dimensions")}
+              placeholder={t.partForm.dimensionsPh}
+              dir="ltr"
+            />
+            <span className="hint">{t.partForm.dimensionsHint}</span>
           </div>
           <div className="field">
             <label className="label" htmlFor="barcode">

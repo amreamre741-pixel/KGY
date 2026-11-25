@@ -50,6 +50,8 @@ export default async function POSPage() {
         refNorm: p.refNorm,
         barcode: p.barcode ?? "",
         brand: p.brand,
+        dimensions: p.dimensions,
+        dimNorm: p.dimNorm,
         imageUrl: p.imageUrl,
         salePrice: Number(p.salePrice),
         vehicles: p.compat.map((c) => `${c.make} ${c.model}`).join(" "),

@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { useI18n } from "@/lib/i18n/client";
-import { normalizeRef } from "@/lib/search";
+import { normalizeDim, normalizeRef } from "@/lib/search";
 import Scanner from "@/components/Scanner";
-import { IconAlert, IconArrowBack, IconBarcode, IconPin, IconSearch, IconTransfer, IconTrash } from "@/components/icons";
+import { IconAlert, IconArrowBack, IconBarcode, IconPin, IconRuler, IconSearch, IconTransfer, IconTrash } from "@/components/icons";
 import { createTransfer } from "../actions";
 
 type TransferPart = {
@@ -16,6 +16,8 @@ type TransferPart = {
   refNorm: string;
   barcode: string;
   brand: string;
+  dimensions: string;
+  dimNorm: string;
   stocks: Record<string, { qty: number; loc: string }>;
 };
 
@@ -24,22 +26,42 @@ type TransferLine = { part: TransferPart; quantity: number; toLocation: string }
 export default function TransferFormClient({
   fromStores,
   allStores,
+  initialPartId,
+  initialToStoreId,
   parts,
 }: {
   fromStores: { id: string; name: string }[];
   allStores: { id: string; name: string }[];
+  initialPartId?: string;
+  initialToStoreId?: string;
   parts: TransferPart[];
 }) {
   const { t } = useI18n();
   const router = useRouter();
-  const initialFrom = fromStores[0]?.id ?? "";
-  const initialTo = allStores.find((s) => s.id !== initialFrom)?.id ?? "";
 
-  const [fromStoreId, setFromStoreId] = useState(initialFrom);
-  const [toStoreId, setToStoreId] = useState(initialTo);
+  const prePart = initialPartId ? parts.find((p) => p.id === initialPartId) : undefined;
+  const bestFrom =
+    (prePart &&
+      fromStores
+        .filter((s) => s.id !== initialToStoreId && (prePart.stocks[s.id]?.qty ?? 0) > 0)
+        .sort((a, b) => (prePart.stocks[b.id]?.qty ?? 0) - (prePart.stocks[a.id]?.qty ?? 0))[0]?.id) ||
+    fromStores[0]?.id ||
+    "";
+  const bestTo =
+    (initialToStoreId && initialToStoreId !== bestFrom && allStores.some((s) => s.id === initialToStoreId)
+      ? initialToStoreId
+      : allStores.find((s) => s.id !== bestFrom)?.id) || "";
+
+  const [fromStoreId, setFromStoreId] = useState(bestFrom);
+  const [toStoreId, setToStoreId] = useState(bestTo);
   const [q, setQ] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
-  const [lines, setLines] = useState<TransferLine[]>([]);
+  const [lines, setLines] = useState<TransferLine[]>(() => {
+    if (prePart && bestFrom && (prePart.stocks[bestFrom]?.qty ?? 0) > 0) {
+      return [{ part: prePart, quantity: 1, toLocation: prePart.stocks[bestTo]?.loc ?? "" }];
+    }
+    return [];
+  });
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -81,7 +103,15 @@ export default function TransferFormClient({
         if (!terms.length) return availOf(p) > 0;
         return terms.every((term) => {
           const n = normalizeRef(term);
-          return p.name.toLowerCase().includes(term) || p.brand.toLowerCase().includes(term) || p.barcode === term || (n && p.refNorm.includes(n));
+          const dn = normalizeDim(term);
+          return (
+            p.name.toLowerCase().includes(term) ||
+            p.brand.toLowerCase().includes(term) ||
+            p.dimensions.toLowerCase().includes(term) ||
+            p.barcode === term ||
+            (n && p.refNorm.includes(n)) ||
+            (dn && p.dimNorm.includes(dn))
+          );
         });
       })
       .slice(0, 24);
@@ -173,6 +203,11 @@ export default function TransferFormClient({
                       <div className="title">{p.name}</div>
                       <div className="part-sub">
                         <span className="ref">{p.reference}</span>
+                        {p.dimensions && (
+                          <span dir="ltr">
+                            · <IconRuler width={12} height={12} /> {p.dimensions}
+                          </span>
+                        )}
                         {loc && (
                           <span>
                             · <IconPin width={12} height={12} /> {loc}

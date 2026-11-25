@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
 import { can, getActiveStoreId, requireUser } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { findExactPart, listParts, PAGE_SIZE, stockStatus } from "@/lib/parts";
@@ -11,7 +12,7 @@ import PartsTable, { type PartRow } from "./PartsTable";
 
 export const metadata: Metadata = { title: "السلعة" };
 
-type SP = Promise<{ q?: string; low?: string; page?: string; scan?: string }>;
+type SP = Promise<{ q?: string; low?: string; out?: string; page?: string; scan?: string }>;
 
 export default async function PartsPage({ searchParams }: { searchParams: SP }) {
   const user = await requireUser();
@@ -19,8 +20,10 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
   const sp = await searchParams;
   const q = (sp.q ?? "").slice(0, 120);
   const lowOnly = sp.low === "1";
+  const outOnly = sp.out === "1";
   const page = Math.max(1, Number(sp.page) || 1);
   const storeId = await getActiveStoreId(user);
+  const crossStore = can.viewCrossStoreStock(user);
 
   // A scanned code that matches exactly one part opens it directly.
   if (sp.scan === "1" && q) {
@@ -28,19 +31,30 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
     if (id) redirect(`/parts/${id}`);
   }
 
-  const { total, parts } = await listParts({ q, storeId, lowOnly, page });
+  const [{ total, parts }, activeStoresCount] = await Promise.all([
+    listParts({ q, storeId, lowOnly, outOnly, includeAllStoresStock: crossStore, page }),
+    db.store.count({ where: { active: true } }),
+  ]);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const rows: PartRow[] = parts.map((p) => {
-    const qty = p.stocks.reduce((a, s) => a + s.quantity, 0);
-    const statuses = p.stocks.map((s) => stockStatus(s.quantity, s.minQuantity));
-    const status = p.stocks.length === 0 || qty <= 0 ? "out" : statuses.includes("low") || statuses.includes("out") ? "low" : "ok";
+    const relevantStocks = storeId ? p.stocks.filter((s) => s.storeId === storeId) : p.stocks;
+    const qty = relevantStocks.reduce((a, s) => a + s.quantity, 0);
+    const statuses = relevantStocks.map((s) => stockStatus(s.quantity, s.minQuantity));
+    const status =
+      relevantStocks.length === 0 || qty <= 0
+        ? "out"
+        : statuses.includes("low") || statuses.includes("out")
+          ? "low"
+          : "ok";
+
     return {
       id: p.id,
       name: partName(p, lang),
       reference: p.reference,
       brand: p.brand,
       category: p.category ? (lang === "en" && p.category.nameEn ? p.category.nameEn : p.category.nameAr) : "",
+      dimensions: p.dimensions,
       vehicles: p.compat.map((c) => ({
         type: c.type,
         label: [c.make, c.model, yearRange(c.yearFrom, c.yearTo)].filter(Boolean).join(" "),
@@ -48,9 +62,17 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
       moreVehicles: Math.max(0, p._count.compat - p.compat.length),
       quantity: qty,
       status,
-      location: storeId ? (p.stocks[0]?.location ?? "") : "",
+      location: storeId ? (relevantStocks[0]?.location ?? "") : "",
       salePrice: Number(p.salePrice),
       imageUrl: p.imageUrl,
+      storeStocks: crossStore
+        ? p.stocks.map((s) => ({
+            storeId: s.storeId,
+            storeName: s.store.name,
+            quantity: s.quantity,
+            status: stockStatus(s.quantity, s.minQuantity),
+          }))
+        : [],
     };
   });
 
@@ -58,6 +80,7 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (lowOnly) params.set("low", "1");
+    if (outOnly) params.set("out", "1");
     if (n > 1) params.set("page", String(n));
     return `/parts${params.size ? `?${params}` : ""}`;
   };
@@ -66,6 +89,13 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (!lowOnly) params.set("low", "1");
+    return `/parts${params.size ? `?${params}` : ""}`;
+  })();
+
+  const outToggleHref = (() => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (!outOnly) params.set("out", "1");
     return `/parts${params.size ? `?${params}` : ""}`;
   })();
 
@@ -89,15 +119,29 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
       </div>
 
       <div className="stack">
-        <SearchBar key={q} defaultValue={q} keep={lowOnly ? { low: "1" } : {}} />
+        <SearchBar
+          key={q}
+          defaultValue={q}
+          keep={lowOnly ? { low: "1" } : outOnly ? { out: "1" } : {}}
+        />
         <div className="row">
           <Link href={lowToggleHref} className={`btn btn-sm ${lowOnly ? "btn-navy" : "btn-secondary"}`} id="low-filter">
             {t.parts.lowOnly}
           </Link>
+          <Link href={outToggleHref} className={`btn btn-sm ${outOnly ? "btn-navy" : "btn-secondary"}`} id="out-filter">
+            {t.parts.outOnly}
+          </Link>
         </div>
       </div>
 
-      <PartsTable rows={rows} showLocation={Boolean(storeId)} hasQuery={Boolean(q) || lowOnly} />
+      <PartsTable
+        rows={rows}
+        showLocation={Boolean(storeId)}
+        hasQuery={Boolean(q) || lowOnly || outOnly}
+        canEdit={can.editParts(user)}
+        canDelete={user.role === "OWNER"}
+        canTransfer={can.editParts(user) && activeStoresCount >= 2}
+      />
 
       {pages > 1 && (
         <nav className="row spread" aria-label="pagination">

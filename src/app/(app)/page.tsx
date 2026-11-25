@@ -1,18 +1,41 @@
 import Link from "next/link";
 import { can, getActiveStoreId, requireUser } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
-import { homeStats, lowStockList, recentMovements } from "@/lib/parts";
+import { homeStats, lowStockList, outOfStockList, recentMovements } from "@/lib/parts";
 import { formatDA, formatDateTime, formatInt, partName } from "@/lib/format";
 import SearchBar from "@/components/SearchBar";
-import { IconAlert, IconBoxIn, IconCart, IconChart, IconCheck, IconCoins, IconHistory, IconLayers, IconParts, IconPlus, IconTransfer, IconTruck, IconUpload, IconWallet } from "@/components/icons";
+import {
+  IconAlert,
+  IconBoxIn,
+  IconCart,
+  IconChart,
+  IconCheck,
+  IconClipboard,
+  IconCoins,
+  IconHistory,
+  IconLayers,
+  IconParts,
+  IconPlus,
+  IconStore,
+  IconTransfer,
+  IconTruck,
+  IconUpload,
+  IconWallet,
+} from "@/components/icons";
 
 export default async function HomePage() {
   const user = await requireUser();
   const { t, lang } = await getI18n();
   const storeId = await getActiveStoreId(user);
   const showCost = can.seeCost(user);
+  const alertStoreScope = can.viewCrossStoreStock(user) ? storeId : user.storeId;
 
-  const [stats, low, recent] = await Promise.all([homeStats(storeId), lowStockList(storeId), recentMovements(storeId)]);
+  const [stats, outList, low, recent] = await Promise.all([
+    homeStats(alertStoreScope),
+    outOfStockList(alertStoreScope, 8),
+    lowStockList(alertStoreScope, 8),
+    recentMovements(storeId),
+  ]);
 
   return (
     <>
@@ -59,7 +82,16 @@ export default async function HomePage() {
             </div>
           </>
         )}
-        <Link href="/parts?low=1" className={`card stat ${stats.lowCount ? "is-alert" : ""}`}>
+        <Link href="/alerts?tab=out" className={`card stat ${stats.outCount ? "is-alert" : ""}`}>
+          <div className="stat-label">
+            <IconAlert />
+            {t.home.statOut}
+          </div>
+          <div className="stat-value num" style={stats.outCount ? { color: "var(--danger)" } : undefined}>
+            {formatInt(stats.outCount)}
+          </div>
+        </Link>
+        <Link href="/alerts?tab=low" className={`card stat ${stats.lowCount ? "is-alert" : ""}`}>
           <div className="stat-label">
             <IconAlert />
             {t.home.statLow}
@@ -73,12 +105,25 @@ export default async function HomePage() {
           <IconCart />
           {t.nav.pos}
         </Link>
+        <Link href="/order-notes" className="btn btn-navy" id="home-order-notes">
+          <IconClipboard />
+          {t.nav.orderNotes}
+          {stats.pendingOrders > 0 && (
+            <span className="badge badge-orange num" style={{ marginInlineStart: 4 }}>
+              {stats.pendingOrders}
+            </span>
+          )}
+        </Link>
+        <Link href="/alerts" className="btn btn-secondary" id="home-alerts">
+          <IconAlert />
+          {t.nav.alerts}
+        </Link>
         <Link href="/customers" className="btn btn-secondary" id="home-customers">
           <IconWallet />
           {t.nav.customers}
         </Link>
         {showCost && (
-          <Link href="/reports" className="btn btn-navy" id="home-reports">
+          <Link href="/reports" className="btn btn-secondary" id="home-reports">
             <IconChart />
             {t.home.reportsBtn}
           </Link>
@@ -117,15 +162,55 @@ export default async function HomePage() {
         )}
       </div>
 
-      <div className="grid-main">
+      {/* Out of stock & Running low side-by-side */}
+      <div className="report-split">
         <section className="card">
           <div className="card-head">
-            <h2>{t.home.lowTitle}</h2>
-            {low.length > 0 && (
-              <Link href="/parts?low=1" className="btn btn-ghost btn-sm">
-                {t.home.viewAll}
-              </Link>
-            )}
+            <div className="row" style={{ gap: 8 }}>
+              <IconAlert style={{ width: 18, height: 18, color: "var(--danger)" }} />
+              <h2>{t.home.outTitle}</h2>
+            </div>
+            <Link href="/alerts?tab=out" className="btn btn-ghost btn-sm">
+              {t.home.viewAll}
+            </Link>
+          </div>
+          {outList.length === 0 ? (
+            <div className="empty">
+              <div className="empty-icon" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>
+                <IconCheck />
+              </div>
+              <span>{t.home.outEmpty}</span>
+            </div>
+          ) : (
+            <div className="list">
+              {outList.map((s) => (
+                <Link key={s.id} href={`/parts/${s.part.id}`} className="list-item">
+                  <div className="grow">
+                    <div className="title">{partName(s.part, lang)}</div>
+                    <div className="part-sub">
+                      <span className="ref">{s.part.reference}</span>
+                      {s.part.dimensions && <span dir="ltr">· {s.part.dimensions}</span>}
+                      <span className="badge badge-out">
+                        <IconStore width={12} height={12} /> {s.store.name}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="badge badge-out num">0</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="card">
+          <div className="card-head">
+            <div className="row" style={{ gap: 8 }}>
+              <IconAlert style={{ width: 18, height: 18, color: "var(--warn)" }} />
+              <h2>{t.home.lowTitle}</h2>
+            </div>
+            <Link href="/alerts?tab=low" className="btn btn-ghost btn-sm">
+              {t.home.viewAll}
+            </Link>
           </div>
           {low.length === 0 ? (
             <div className="empty">
@@ -142,11 +227,13 @@ export default async function HomePage() {
                     <div className="title">{partName(s.part, lang)}</div>
                     <div className="part-sub">
                       <span className="ref">{s.part.reference}</span>
-                      {s.part.brand && <span>· {s.part.brand}</span>}
-                      {!storeId && <span>· {s.store.name}</span>}
+                      {s.part.dimensions && <span dir="ltr">· {s.part.dimensions}</span>}
+                      <span className="badge badge-low">
+                        <IconStore width={12} height={12} /> {s.store.name}
+                      </span>
                     </div>
                   </div>
-                  <span className={`badge ${s.quantity <= 0 ? "badge-out" : "badge-low"} num`}>
+                  <span className="badge badge-low num">
                     {s.quantity} / {s.minQuantity}
                   </span>
                 </Link>
@@ -154,41 +241,42 @@ export default async function HomePage() {
             </div>
           )}
         </section>
-
-        <section className="card">
-          <div className="card-head">
-            <h2>{t.home.recentTitle}</h2>
-          </div>
-          {recent.length === 0 ? (
-            <div className="empty">
-              <div className="empty-icon">
-                <IconHistory />
-              </div>
-              <span>{t.home.recentEmpty}</span>
-            </div>
-          ) : (
-            <div className="list">
-              {recent.map((m) => (
-                <Link key={m.id} href={`/parts/${m.part.id}`} className="list-item">
-                  <span
-                    className={`mv-icon num ${m.type === "ADJUST" ? "mv-adj" : m.quantity >= 0 ? "mv-in" : "mv-out"}`}
-                  >
-                    {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
-                  </span>
-                  <div className="grow">
-                    <div className="title">{partName(m.part, lang)}</div>
-                    <div className="part-sub">
-                      <span>{t.movement[m.type]}</span>
-                      {!storeId && <span>· {m.store.name}</span>}
-                      <span>· {formatDateTime(m.createdAt, lang)}</span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
       </div>
+
+      {/* Recent movements */}
+      <section className="card">
+        <div className="card-head">
+          <h2>{t.home.recentTitle}</h2>
+        </div>
+        {recent.length === 0 ? (
+          <div className="empty">
+            <div className="empty-icon">
+              <IconHistory />
+            </div>
+            <span>{t.home.recentEmpty}</span>
+          </div>
+        ) : (
+          <div className="list">
+            {recent.map((m) => (
+              <Link key={m.id} href={`/parts/${m.part.id}`} className="list-item">
+                <span
+                  className={`mv-icon num ${m.type === "ADJUST" ? "mv-adj" : m.quantity >= 0 ? "mv-in" : "mv-out"}`}
+                >
+                  {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
+                </span>
+                <div className="grow">
+                  <div className="title">{partName(m.part, lang)}</div>
+                  <div className="part-sub">
+                    <span>{t.movement[m.type]}</span>
+                    {!storeId && <span>· {m.store.name}</span>}
+                    <span>· {formatDateTime(m.createdAt, lang)}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </>
   );
 }

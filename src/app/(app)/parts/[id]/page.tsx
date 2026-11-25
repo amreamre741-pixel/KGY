@@ -7,7 +7,7 @@ import { getI18n } from "@/lib/i18n/server";
 import { stockStatus } from "@/lib/parts";
 import { formatDA, formatDateTime, partName, yearRange } from "@/lib/format";
 import Barcode from "@/components/Barcode";
-import { IconArrowBack, IconCar, IconEdit, IconHistory, IconPin, IconPrinter, IconTruck } from "@/components/icons";
+import { IconArrowBack, IconCar, IconEdit, IconHistory, IconPin, IconPrinter, IconRuler, IconTransfer, IconTruck } from "@/components/icons";
 import { AdjustButton, DeletePartButton, PartPhotoCard } from "./PartActions";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -32,19 +32,19 @@ export default async function PartPage({ params }: { params: Promise<{ id: strin
   if (!part) notFound();
 
   const stores = await db.store.findMany({
-    where: { active: true, ...(can.seeAllStores(user) ? {} : { id: user.storeId ?? "__none__" }) },
+    where: { active: true, ...(can.viewCrossStoreStock(user) ? {} : { id: user.storeId ?? "__none__" }) },
     orderBy: { createdAt: "asc" },
     select: { id: true, name: true },
   });
 
   const movements = await db.stockMovement.findMany({
-    where: { partId: id, ...(can.seeAllStores(user) ? {} : { storeId: user.storeId ?? "__none__" }) },
+    where: { partId: id, ...(can.viewCrossStoreStock(user) ? {} : { storeId: user.storeId ?? "__none__" }) },
     orderBy: { createdAt: "desc" },
     take: 30,
     include: { store: { select: { name: true } }, user: { select: { name: true } } },
   });
 
-  // Owners see all stores; others see their own store (and read-only totals elsewhere are hidden).
+  // Owners & store managers see stock across all stores; sellers see their assigned store.
   const rows = stores.map((s) => {
     const st = part.stocks.find((x) => x.storeId === s.id);
     return {
@@ -74,6 +74,12 @@ export default async function PartPage({ params }: { params: Promise<{ id: strin
               {part.reference}
             </span>
             {part.brand && <span className="badge">{part.brand}</span>}
+            {part.dimensions && (
+              <span className="chip mono" dir="ltr" style={{ fontWeight: 600 }}>
+                <IconRuler />
+                {part.dimensions}
+              </span>
+            )}
             {part.category && (
               <span className="badge badge-orange">
                 {lang === "en" && part.category.nameEn ? part.category.nameEn : part.category.nameAr}
@@ -87,6 +93,12 @@ export default async function PartPage({ params }: { params: Promise<{ id: strin
             <IconPrinter />
             {t.partView.printLabel}
           </Link>
+          {can.editParts(user) && stores.length >= 2 && (
+            <Link href={`/transfers/new?partId=${part.id}`} className="btn btn-secondary" id="transfer-part-btn">
+              <IconTransfer />
+              {t.parts.transferPart}
+            </Link>
+          )}
           {can.editParts(user) && (
             <Link href={`/parts/${part.id}/edit`} className="btn btn-navy" id="edit-part-btn">
               <IconEdit />

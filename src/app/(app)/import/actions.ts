@@ -4,7 +4,7 @@ import { Prisma, type VehicleType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { can, requireUser } from "@/lib/auth";
-import { normalizeRef } from "@/lib/search";
+import { normalizeDim, normalizeRef } from "@/lib/search";
 import { generateBarcode } from "@/lib/barcode";
 
 export type ImportRow = Partial<
@@ -15,6 +15,7 @@ export type ImportRow = Partial<
     | "brand"
     | "barcode"
     | "category"
+    | "dimensions"
     | "purchasePrice"
     | "salePrice"
     | "quantity"
@@ -117,6 +118,7 @@ export async function importParts(
       }
       const brand = clean(row.brand, 80);
       const barcode = clean(row.barcode, 64);
+      const dimensions = clean(row.dimensions, 100);
       const categoryId = await getCategoryId(clean(row.category, 80));
       const purchasePrice = parseNumber(row.purchasePrice);
       const salePrice = parseNumber(row.salePrice);
@@ -138,6 +140,7 @@ export async function importParts(
         nameAr,
         ...(nameEn ? { nameEn } : {}),
         ...(categoryId ? { categoryId } : {}),
+        ...(dimensions ? { dimensions, dimNorm: normalizeDim(dimensions) } : {}),
         ...(purchasePrice != null && purchasePrice >= 0 ? { purchasePrice: new Prisma.Decimal(purchasePrice.toFixed(2)) } : {}),
         ...(salePrice != null && salePrice >= 0 ? { salePrice: new Prisma.Decimal(salePrice.toFixed(2)) } : {}),
       };

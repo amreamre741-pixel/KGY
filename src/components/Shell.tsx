@@ -7,9 +7,11 @@ import type { Role } from "@prisma/client";
 import { useI18n } from "@/lib/i18n/client";
 import { logout, setActiveStore, toggleLang } from "@/app/actions";
 import {
+  IconAlert,
   IconBoxIn,
   IconCart,
   IconChart,
+  IconClipboard,
   IconCoins,
   IconGlobe,
   IconHome,
@@ -43,6 +45,8 @@ export default function Shell({ user, perms, stores, activeStoreId, children }: 
     { href: "/parts", label: t.nav.parts, icon: <IconParts />, show: true, mobile: true },
     { href: "/sales", label: t.nav.sales, icon: <IconReceipt />, show: true, mobile: true },
     { href: "/customers", label: t.nav.customers, icon: <IconWallet />, show: true, mobile: true },
+    { href: "/alerts", label: t.nav.alerts, icon: <IconAlert />, show: true, mobile: false },
+    { href: "/order-notes", label: t.nav.orderNotes, icon: <IconClipboard />, show: true, mobile: false },
     { href: "/reports", label: t.nav.reports, icon: <IconChart />, show: perms.import, mobile: false },
     { href: "/purchases", label: t.nav.purchases, icon: <IconBoxIn />, show: perms.import, mobile: false },
     { href: "/suppliers", label: t.nav.suppliers, icon: <IconTruck />, show: perms.import, mobile: false },
@@ -146,6 +150,12 @@ export default function Shell({ user, perms, stores, activeStoreId, children }: 
         <Link href="/">{logo}</Link>
         {storePicker ?? <strong>{user.storeName ?? "KGY"}</strong>}
         <span className="topbar-spacer" />
+        <Link href="/alerts" className="side-btn" aria-label={t.nav.alerts} title={t.nav.alerts}>
+          <IconAlert />
+        </Link>
+        <Link href="/order-notes" className="side-btn" aria-label={t.nav.orderNotes} title={t.nav.orderNotes}>
+          <IconClipboard />
+        </Link>
         {perms.import && (
           <Link href="/reports" className="side-btn" aria-label={t.nav.reports} title={t.nav.reports}>
             <IconChart />

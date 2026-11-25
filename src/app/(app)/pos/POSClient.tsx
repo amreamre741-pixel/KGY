@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { useI18n } from "@/lib/i18n/client";
 import { formatDA } from "@/lib/format";
-import { normalizeRef } from "@/lib/search";
+import { normalizeDim, normalizeRef, searchTerms } from "@/lib/search";
 import Scanner from "@/components/Scanner";
 import { IconAlert, IconBarcode, IconCart, IconMinus, IconPin, IconPlus, IconSearch, IconTrash } from "@/components/icons";
 import { createSale } from "./actions";
@@ -16,6 +16,8 @@ type POSPart = {
   refNorm: string;
   barcode: string;
   brand: string;
+  dimensions: string;
+  dimNorm: string;
   imageUrl: string;
   salePrice: number;
   vehicles: string;
@@ -88,18 +90,21 @@ export default function POSClient({
   );
 
   const filtered = useMemo(() => {
-    const terms = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const terms = searchTerms(q).map((term) => term.toLowerCase());
     return parts
       .filter((p) => {
         if (!terms.length) return stockOf(p) > 0;
         return terms.every((term) => {
           const n = normalizeRef(term);
+          const dn = normalizeDim(term);
           return (
             p.name.toLowerCase().includes(term) ||
             p.brand.toLowerCase().includes(term) ||
+            p.dimensions.toLowerCase().includes(term) ||
             p.vehicles.toLowerCase().includes(term) ||
             p.barcode === term ||
-            (n && p.refNorm.includes(n))
+            (n && p.refNorm.includes(n)) ||
+            (dn && p.dimNorm.includes(dn))
           );
         });
       })
@@ -226,6 +231,7 @@ export default function POSClient({
                       <div className="part-sub">
                         <span className="ref">{p.reference}</span>
                         {p.brand && <span>· {p.brand}</span>}
+                        {p.dimensions && <span dir="ltr">· {p.dimensions}</span>}
                         {loc && (
                           <span>
                             · <IconPin width={12} height={12} /> {loc}

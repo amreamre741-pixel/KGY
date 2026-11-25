@@ -32,6 +32,7 @@ export default async function EditPartPage({ params }: { params: Promise<{ id: s
         nameEn: part.nameEn,
         brand: part.brand,
         category: part.category?.nameAr ?? "",
+        dimensions: part.dimensions ?? "",
         purchasePrice: Number(part.purchasePrice) ? String(Number(part.purchasePrice)) : "",
         salePrice: Number(part.salePrice) ? String(Number(part.salePrice)) : "",
         imageUrl: part.imageUrl,

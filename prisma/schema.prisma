@@ -48,6 +48,7 @@ model Store {
   supplierPayments SupplierPayment[]
   transfersOut     StockTransfer[]   @relation("TransferFrom")
   transfersIn      StockTransfer[]   @relation("TransferTo")
+  orderNotes       OrderNote[]
 }
 
 model User {
@@ -67,6 +68,7 @@ model User {
   purchases        Purchase[]
   supplierPayments SupplierPayment[]
   transfers        StockTransfer[]
+  orderNotes       OrderNote[]
 }
 
 model Category {
@@ -88,6 +90,8 @@ model Part {
   category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   purchasePrice Decimal   @default(0) @db.Decimal(12, 2)
   salePrice     Decimal   @default(0) @db.Decimal(12, 2)
+  dimensions    String    @default("") // e.g. "30x62x16 mm" / "M12x1.5"
+  dimNorm       String    @default("") // normalized dimensions for flexible mm search
   imageUrl      String    @default("")
   notes         String    @default("")
   createdAt     DateTime  @default(now())
@@ -102,6 +106,7 @@ model Part {
 
   @@unique([reference, brand])
   @@index([refNorm])
+  @@index([dimNorm])
 }
 
 model VehicleCompat {
@@ -315,3 +320,29 @@ model StockTransferItem {
   quantity   Int
   toLocation String        @default("")
 }
+
+enum OrderNoteStatus {
+  PENDING
+  DONE
+}
+
+model OrderNote {
+  id          String          @id @default(cuid())
+  storeId     String?
+  store       Store?          @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  userId      String?
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  partName    String
+  reference   String          @default("")
+  vehicle     String          @default("")
+  quantity    Int             @default(1)
+  customerInfo String         @default("")
+  note        String          @default("")
+  status      OrderNoteStatus @default(PENDING)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([status, createdAt])
+  @@index([storeId, createdAt])
+}
+

@@ -1,14 +1,14 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
-import { asYear, normalizeRef, searchTerms } from "./search";
+import { asYear, normalizeDim, normalizeRef, searchTerms } from "./search";
 
 export const PAGE_SIZE = 30;
 
 /**
  * Every term must match something: reference (normalized), barcode, names,
- * brand, category, or a compatible vehicle (make/model/year).
- * "plaquette symbol 2016" -> brake pads that fit a 2016 Symbol.
+ * brand, category, dimensions/size in mm, or a compatible vehicle (make/model/year).
+ * "roulement 30x62x16" or "plaquette symbol 2016" -> exact matches.
  */
 export function partSearchWhere(q: string): Prisma.PartWhereInput {
   const terms = searchTerms(q);
@@ -17,16 +17,19 @@ export function partSearchWhere(q: string): Prisma.PartWhereInput {
     AND: terms.map((term): Prisma.PartWhereInput => {
       const ci = { contains: term, mode: "insensitive" as const };
       const norm = normalizeRef(term);
+      const dNorm = normalizeDim(term);
       const year = asYear(term);
       const or: Prisma.PartWhereInput[] = [
         { nameAr: ci },
         { nameEn: ci },
         { brand: ci },
+        { dimensions: ci },
         { barcode: { equals: term } },
         { category: { OR: [{ nameAr: ci }, { nameEn: ci }] } },
         { compat: { some: { OR: [{ make: ci }, { model: ci }] } } },
       ];
       if (norm) or.push({ refNorm: { contains: norm } });
+      if (dNorm) or.push({ dimNorm: { contains: dNorm } });
       if (year) {
         or.push({
           compat: {
@@ -45,6 +48,25 @@ export function partSearchWhere(q: string): Prisma.PartWhereInput {
   };
 }
 
+/** Parts running low (0 < quantity <= minQuantity). */
+export function runningLowWhere(storeId: string | null): Prisma.StockWhereInput {
+  return {
+    ...(storeId ? { storeId } : {}),
+    store: { active: true },
+    minQuantity: { gt: 0 },
+    quantity: { gt: 0, lte: db.stock.fields.minQuantity },
+  };
+}
+
+/** Parts that emptied completely in a store (quantity <= 0). */
+export function outOfStockWhere(storeId: string | null): Prisma.StockWhereInput {
+  return {
+    ...(storeId ? { storeId } : {}),
+    store: { active: true },
+    quantity: { lte: 0 },
+  };
+}
+
 export function lowStockWhere(storeId: string | null): Prisma.StockWhereInput {
   return {
     ...(storeId ? { storeId } : {}),
@@ -54,10 +76,23 @@ export function lowStockWhere(storeId: string | null): Prisma.StockWhereInput {
   };
 }
 
-export async function listParts(opts: { q: string; storeId: string | null; lowOnly: boolean; page: number }) {
+export async function listParts(opts: {
+  q: string;
+  storeId: string | null;
+  lowOnly: boolean;
+  outOnly?: boolean;
+  includeAllStoresStock?: boolean;
+  page: number;
+}) {
+  const stockFilter = opts.outOnly
+    ? { OR: [{ stocks: { some: outOfStockWhere(opts.storeId) } }, { stocks: { none: { store: { active: true } } } }] }
+    : opts.lowOnly
+      ? { stocks: { some: lowStockWhere(opts.storeId) } }
+      : {};
+
   const where: Prisma.PartWhereInput = {
     ...partSearchWhere(opts.q),
-    ...(opts.lowOnly ? { stocks: { some: lowStockWhere(opts.storeId) } } : {}),
+    ...stockFilter,
   };
   const [total, parts] = await Promise.all([
     db.part.count({ where }),
@@ -71,8 +106,17 @@ export async function listParts(opts: { q: string; storeId: string | null; lowOn
         compat: { take: 3, orderBy: { make: "asc" } },
         _count: { select: { compat: true } },
         stocks: {
-          where: { store: { active: true }, ...(opts.storeId ? { storeId: opts.storeId } : {}) },
-          select: { quantity: true, minQuantity: true, location: true, storeId: true },
+          where: {
+            store: { active: true },
+            ...(opts.includeAllStoresStock || !opts.storeId ? {} : { storeId: opts.storeId }),
+          },
+          select: {
+            quantity: true,
+            minQuantity: true,
+            location: true,
+            storeId: true,
+            store: { select: { name: true } },
+          },
         },
       },
     }),
@@ -95,7 +139,7 @@ export async function homeStats(storeId: string | null) {
   const stockWhere: Prisma.StockWhereInput = { store: { active: true }, ...(storeId ? { storeId } : {}) };
   const storeFilter = storeId ? Prisma.sql`AND s."storeId" = ${storeId}` : Prisma.empty;
 
-  const [partCount, units, valueRows, lowCount] = await Promise.all([
+  const [partCount, units, valueRows, lowCount, outCount, pendingOrders] = await Promise.all([
     db.part.count(),
     db.stock.aggregate({ where: stockWhere, _sum: { quantity: true } }),
     db.$queryRaw<{ cost_value: Prisma.Decimal | null; sale_value: Prisma.Decimal | null }[]>`
@@ -106,7 +150,9 @@ export async function homeStats(storeId: string | null) {
       JOIN "Part" p ON p."id" = s."partId"
       JOIN "Store" st ON st."id" = s."storeId"
       WHERE st."active" = true AND s."quantity" > 0 ${storeFilter}`,
-    db.stock.count({ where: lowStockWhere(storeId) }),
+    db.stock.count({ where: runningLowWhere(storeId) }),
+    db.stock.count({ where: outOfStockWhere(storeId) }),
+    db.orderNote.count({ where: { status: "PENDING" } }),
   ]);
 
   return {
@@ -115,6 +161,8 @@ export async function homeStats(storeId: string | null) {
     value: Number(valueRows[0]?.cost_value ?? 0),
     saleValue: Number(valueRows[0]?.sale_value ?? 0),
     lowCount,
+    outCount,
+    pendingOrders,
   };
 }
 
@@ -163,12 +211,24 @@ export async function perStoreValuations() {
 
 export async function lowStockList(storeId: string | null, take = 8) {
   return db.stock.findMany({
-    where: lowStockWhere(storeId),
+    where: runningLowWhere(storeId),
     orderBy: [{ quantity: "asc" }],
     take,
     include: {
-      part: { select: { id: true, nameAr: true, nameEn: true, reference: true, brand: true } },
-      store: { select: { name: true } },
+      part: { select: { id: true, nameAr: true, nameEn: true, reference: true, brand: true, dimensions: true } },
+      store: { select: { id: true, name: true } },
+    },
+  });
+}
+
+export async function outOfStockList(storeId: string | null, take = 8) {
+  return db.stock.findMany({
+    where: outOfStockWhere(storeId),
+    orderBy: [{ part: { updatedAt: "desc" } }],
+    take,
+    include: {
+      part: { select: { id: true, nameAr: true, nameEn: true, reference: true, brand: true, dimensions: true } },
+      store: { select: { id: true, name: true } },
     },
   });
 }

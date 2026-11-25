@@ -56,6 +56,7 @@ export const can = {
   manageStores: (u: CurrentUser) => u.role === "OWNER",
   manageUsers: (u: CurrentUser) => u.role === "OWNER",
   seeAllStores: (u: CurrentUser) => u.role === "OWNER",
+  viewCrossStoreStock: (u: CurrentUser) => u.role === "OWNER" || u.role === "MANAGER",
   adjustStock: (u: CurrentUser, storeId: string) =>
     u.role === "OWNER" || (u.role === "MANAGER" && u.storeId === storeId),
 };

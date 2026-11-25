@@ -331,3 +331,32 @@ export const IconMoon = (p: P) => (
     <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
   </Svg>
 );
+
+export const IconRuler = (p: P) => (
+  <Svg {...p}>
+    <path d="M21.3 8.7 8.7 21.3a1 1 0 0 1-1.4 0l-4.6-4.6a1 1 0 0 1 0-1.4L15.3 2.7a1 1 0 0 1 1.4 0l4.6 4.6a1 1 0 0 1 0 1.4z" />
+    <path d="m7.5 10.5 2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2" />
+  </Svg>
+);
+
+export const IconClipboard = (p: P) => (
+  <Svg {...p}>
+    <rect x="8" y="2" width="8" height="4" rx="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <path d="M9 12h6M9 16h4" />
+  </Svg>
+);
+
+export const IconFlash = (p: P) => (
+  <Svg {...p}>
+    <path d="M13 2 4 14h7l-1 8 9-12h-7z" />
+  </Svg>
+);
+
+export const IconZoomIn = (p: P) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5M11 8v6M8 11h6" />
+  </Svg>
+);
+

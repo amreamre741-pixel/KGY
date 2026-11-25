@@ -15,7 +15,7 @@ export default async function OrderNotesPage({ searchParams }: Props) {
   const activeStoreId = await getActiveStoreId(user);
 
   const notes = await db.orderNote.findMany({
-    where: activeStoreId ? { OR: [{ storeId: activeStoreId }, { storeId: null }] } : {},
+    where: activeStoreId ? { storeId: activeStoreId } : {},
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 250,
     include: {

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { can, requireUser } from "@/lib/auth";
+import { can, getActiveStoreId, requireUser } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { stockStatus } from "@/lib/parts";
 import { formatDA, formatDateTime, partName, yearRange } from "@/lib/format";
@@ -20,31 +20,37 @@ export default async function PartPage({ params }: { params: Promise<{ id: strin
   const user = await requireUser();
   const { t, lang } = await getI18n();
   const { id } = await params;
+  const activeStoreId = await getActiveStoreId(user);
 
   const part = await db.part.findUnique({
     where: { id },
     include: {
       category: true,
       compat: { orderBy: [{ make: "asc" }, { model: "asc" }] },
-      stocks: { where: { store: { active: true } }, include: { store: { select: { name: true } } } },
+      stocks: {
+        where: { store: { active: true }, ...(activeStoreId ? { storeId: activeStoreId } : {}) },
+        include: { store: { select: { name: true } } },
+      },
     },
   });
   if (!part) notFound();
 
-  const stores = await db.store.findMany({
-    where: { active: true, ...(can.viewCrossStoreStock(user) ? {} : { id: user.storeId ?? "__none__" }) },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, name: true },
-  });
+  const [stores, activeStoresCount, movements] = await Promise.all([
+    db.store.findMany({
+      where: { active: true, ...(activeStoreId ? { id: activeStoreId } : {}) },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true },
+    }),
+    db.store.count({ where: { active: true } }),
+    db.stockMovement.findMany({
+      where: { partId: id, ...(activeStoreId ? { storeId: activeStoreId } : {}) },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      include: { store: { select: { name: true } }, user: { select: { name: true } } },
+    }),
+  ]);
 
-  const movements = await db.stockMovement.findMany({
-    where: { partId: id, ...(can.viewCrossStoreStock(user) ? {} : { storeId: user.storeId ?? "__none__" }) },
-    orderBy: { createdAt: "desc" },
-    take: 30,
-    include: { store: { select: { name: true } }, user: { select: { name: true } } },
-  });
-
-  // Owners & store managers see stock across all stores; sellers see their assigned store.
+  // Strictly show ONLY the active store's warehouse stock (never show 0 for unrelated stores!)
   const rows = stores.map((s) => {
     const st = part.stocks.find((x) => x.storeId === s.id);
     return {
@@ -93,7 +99,7 @@ export default async function PartPage({ params }: { params: Promise<{ id: strin
             <IconPrinter />
             {t.partView.printLabel}
           </Link>
-          {can.editParts(user) && stores.length >= 2 && (
+          {can.editParts(user) && activeStoresCount >= 2 && (
             <Link href={`/transfers/new?partId=${part.id}`} className="btn btn-secondary" id="transfer-part-btn">
               <IconTransfer />
               {t.parts.transferPart}

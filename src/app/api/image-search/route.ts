@@ -13,7 +13,10 @@ export async function GET() {
   const storeId = await getActiveStoreId(user);
 
   const parts = await db.part.findMany({
-    where: { imageUrl: { not: "" } },
+    where: {
+      imageUrl: { not: "" },
+      ...(storeId ? { stocks: { some: { storeId } } } : {}),
+    },
     take: 500,
     orderBy: { updatedAt: "desc" },
     include: {

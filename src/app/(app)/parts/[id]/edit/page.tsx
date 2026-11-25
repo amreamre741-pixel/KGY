@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { can, requireUser } from "@/lib/auth";
+import { can, getActiveStoreId, requireUser } from "@/lib/auth";
 import { editableStores, partFormOptions } from "@/lib/parts";
 import PartForm from "../../PartForm";
 
@@ -12,15 +12,18 @@ export default async function EditPartPage({ params }: { params: Promise<{ id: s
   if (!can.editParts(user)) redirect("/parts");
   const { id } = await params;
 
-  const [part, opts, stores] = await Promise.all([
+  const [part, opts, stores, activeStoreId] = await Promise.all([
     db.part.findUnique({
       where: { id },
       include: { category: true, compat: { orderBy: { make: "asc" } }, stocks: true },
     }),
     partFormOptions(),
     editableStores(user),
+    getActiveStoreId(user),
   ]);
   if (!part) notFound();
+
+  const targetStores = activeStoreId ? stores.filter((s) => s.id === activeStoreId) : stores.slice(0, 1);
 
   return (
     <PartForm
@@ -44,7 +47,7 @@ export default async function EditPartPage({ params }: { params: Promise<{ id: s
           yearFrom: c.yearFrom ? String(c.yearFrom) : "",
           yearTo: c.yearTo ? String(c.yearTo) : "",
         })),
-        stocks: stores.map((s) => {
+        stocks: targetStores.map((s) => {
           const st = part.stocks.find((x) => x.storeId === s.id);
           return {
             storeId: s.id,

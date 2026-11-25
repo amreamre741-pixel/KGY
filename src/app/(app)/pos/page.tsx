@@ -22,12 +22,13 @@ export default async function POSPage() {
 
   const [parts, customers] = await Promise.all([
     db.part.findMany({
+      where: defaultStoreId ? { stocks: { some: { storeId: defaultStoreId } } } : {},
       orderBy: { updatedAt: "desc" },
       take: 800,
       include: {
         compat: { take: 3 },
         stocks: {
-          where: { store: { active: true } },
+          where: { store: { active: true }, ...(defaultStoreId ? { storeId: defaultStoreId } : {}) },
           select: { storeId: true, quantity: true, location: true },
         },
       },

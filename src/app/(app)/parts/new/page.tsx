@@ -15,9 +15,7 @@ export default async function NewPartPage() {
     getActiveStoreId(user),
   ]);
 
-  const orderedStores = activeStoreId
-    ? [...stores.filter((s) => s.id === activeStoreId), ...stores.filter((s) => s.id !== activeStoreId)]
-    : stores;
+  const targetStores = activeStoreId ? stores.filter((s) => s.id === activeStoreId) : stores.slice(0, 1);
 
   return (
     <PartForm
@@ -34,7 +32,7 @@ export default async function NewPartPage() {
         imageUrl: "",
         notes: "",
         compat: [],
-        stocks: orderedStores.map((s) => ({ storeId: s.id, storeName: s.name, quantity: "", minQuantity: "", location: "" })),
+        stocks: targetStores.map((s) => ({ storeId: s.id, storeName: s.name, quantity: "", minQuantity: "", location: "" })),
       }}
       {...opts}
     />

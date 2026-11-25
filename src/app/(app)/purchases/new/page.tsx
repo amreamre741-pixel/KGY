@@ -14,7 +14,7 @@ export default async function NewPurchasePage() {
   if (!can.seeCost(user)) redirect("/");
   const { lang } = await getI18n();
 
-  const [stores, activeStoreId, suppliers, parts] = await Promise.all([
+  const [stores, activeStoreId, suppliers] = await Promise.all([
     editableStores(user),
     getActiveStoreId(user),
     db.supplier.findMany({
@@ -22,22 +22,24 @@ export default async function NewPurchasePage() {
       orderBy: { name: "asc" },
       select: { id: true, name: true, balance: true },
     }),
-    db.part.findMany({
-      orderBy: { updatedAt: "desc" },
-      take: 800,
-      select: {
-        id: true,
-        nameAr: true,
-        nameEn: true,
-        reference: true,
-        refNorm: true,
-        barcode: true,
-        brand: true,
-        purchasePrice: true,
-        salePrice: true,
-      },
-    }),
   ]);
+  const targetStoreId = activeStoreId ?? stores[0]?.id ?? "";
+  const parts = await db.part.findMany({
+    where: targetStoreId ? { stocks: { some: { storeId: targetStoreId } } } : {},
+    orderBy: { updatedAt: "desc" },
+    take: 800,
+    select: {
+      id: true,
+      nameAr: true,
+      nameEn: true,
+      reference: true,
+      refNorm: true,
+      barcode: true,
+      brand: true,
+      purchasePrice: true,
+      salePrice: true,
+    },
+  });
 
   return (
     <PurchaseFormClient

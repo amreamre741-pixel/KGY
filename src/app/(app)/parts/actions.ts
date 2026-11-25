@@ -102,9 +102,17 @@ export async function savePart(_prev: FormState, formData: FormData): Promise<Fo
       location: str(s.location, 40),
     }));
 
-  // Duplicate checks with friendly messages
+  const targetStoreIds = stocks.filter((s) => s.hasInput).map((s) => s.storeId);
+  const checkStoreIds = targetStoreIds.length > 0 ? targetStoreIds : stocks.slice(0, 1).map((s) => s.storeId);
+
+  // Duplicate checks scoped to the target store warehouse
   const dup = await db.part.findFirst({
-    where: { reference, brand, ...(p.id ? { NOT: { id: p.id } } : {}) },
+    where: {
+      reference,
+      brand,
+      ...(checkStoreIds.length > 0 ? { stocks: { some: { storeId: { in: checkStoreIds } } } } : {}),
+      ...(p.id ? { NOT: { id: p.id } } : {}),
+    },
     select: { id: true },
   });
   if (dup) return { error: t.partForm.errDuplicate };

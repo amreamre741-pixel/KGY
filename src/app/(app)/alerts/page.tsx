@@ -1,43 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { can, getActiveStoreId, requireUser } from "@/lib/auth";
+import { getActiveStoreId, requireUser } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n/server";
 import { outOfStockWhere, runningLowWhere } from "@/lib/parts";
 import { formatInt, partName } from "@/lib/format";
-import { IconAlert, IconCheck, IconClipboard, IconPin, IconRuler, IconStore, IconTransfer } from "@/components/icons";
+import { IconAlert, IconCheck, IconClipboard, IconPin, IconRuler, IconStore } from "@/components/icons";
 
 export const metadata: Metadata = { title: "تنبيهات المخزون والنواقص" };
 
 type Props = {
-  searchParams: Promise<{ tab?: string; store?: string }>;
+  searchParams: Promise<{ tab?: string }>;
 };
 
 export default async function AlertsPage({ searchParams }: Props) {
   const user = await requireUser();
   const { t, lang } = await getI18n();
   const sp = await searchParams;
-  const crossStore = can.viewCrossStoreStock(user);
-
-  const stores = crossStore
-    ? await db.store.findMany({ where: { active: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } })
-    : [];
-
-  let storeId: string | null = await getActiveStoreId(user);
-  if (crossStore && sp.store !== undefined) {
-    if (sp.store === "all") {
-      storeId = null;
-    } else if (stores.some((s) => s.id === sp.store)) {
-      storeId = sp.store;
-    }
-  }
+  const storeId = await getActiveStoreId(user);
 
   const tab = sp.tab === "low" ? "low" : sp.tab === "all" ? "all" : "out";
 
-  const [outRows, lowRows] = await Promise.all([
+  const [outRows, lowRows, currentStore] = await Promise.all([
     db.stock.findMany({
       where: outOfStockWhere(storeId),
-      orderBy: [{ store: { name: "asc" } }, { part: { updatedAt: "desc" } }],
+      orderBy: [{ part: { updatedAt: "desc" } }],
       take: 200,
       include: {
         store: { select: { id: true, name: true } },
@@ -49,17 +36,13 @@ export default async function AlertsPage({ searchParams }: Props) {
             reference: true,
             brand: true,
             dimensions: true,
-            stocks: {
-              where: { store: { active: true }, quantity: { gt: 0 } },
-              select: { storeId: true, quantity: true, store: { select: { name: true } } },
-            },
           },
         },
       },
     }),
     db.stock.findMany({
       where: runningLowWhere(storeId),
-      orderBy: [{ quantity: "asc" }, { store: { name: "asc" } }],
+      orderBy: [{ quantity: "asc" }],
       take: 200,
       include: {
         store: { select: { id: true, name: true } },
@@ -71,25 +54,14 @@ export default async function AlertsPage({ searchParams }: Props) {
             reference: true,
             brand: true,
             dimensions: true,
-            stocks: {
-              where: { store: { active: true }, quantity: { gt: 0 } },
-              select: { storeId: true, quantity: true, store: { select: { name: true } } },
-            },
           },
         },
       },
     }),
+    storeId ? db.store.findUnique({ where: { id: storeId }, select: { name: true } }) : Promise.resolve(null),
   ]);
 
-  const tabHref = (nextTab: string, nextStore?: string) => {
-    const p = new URLSearchParams();
-    p.set("tab", nextTab);
-    const st = nextStore !== undefined ? nextStore : storeId ?? "all";
-    if (crossStore) p.set("store", st);
-    return `/alerts?${p.toString()}`;
-  };
-
-  const canTransfer = can.editParts(user) && stores.length >= 2;
+  const tabHref = (nextTab: string) => `/alerts?tab=${nextTab}`;
 
   const renderSection = (kind: "out" | "low", list: typeof outRows) => {
     const isOut = kind === "out";
@@ -117,91 +89,62 @@ export default async function AlertsPage({ searchParams }: Props) {
                 <tr>
                   <th>{t.parts.name}</th>
                   <th>{isOut ? t.alerts.emptiedStore : t.alerts.lowStore}</th>
-                  {crossStore && <th>{t.alerts.availableElsewhere}</th>}
                   <th className="end">{t.parts.quantity}</th>
                   <th className="end">{t.common.actions}</th>
                 </tr>
               </thead>
               <tbody>
-                {list.map((row) => {
-                  const otherStores = row.part.stocks.filter((s) => s.storeId !== row.store.id && s.quantity > 0);
-                  return (
-                    <tr key={row.id}>
-                      <td className="cell-main">
-                        <Link href={`/parts/${row.part.id}`} className="part-name">
-                          {partName(row.part, lang)}
+                {list.map((row) => (
+                  <tr key={row.id}>
+                    <td className="cell-main">
+                      <Link href={`/parts/${row.part.id}`} className="part-name">
+                        {partName(row.part, lang)}
+                      </Link>
+                      <div className="part-sub">
+                        <span className="ref">{row.part.reference}</span>
+                        {row.part.brand && <span className="badge">{row.part.brand}</span>}
+                        {row.part.dimensions && (
+                          <span className="chip mono" dir="ltr">
+                            <IconRuler />
+                            {row.part.dimensions}
+                          </span>
+                        )}
+                        {row.location && (
+                          <span className="chip">
+                            <IconPin />
+                            {row.location}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    <td data-label={isOut ? t.alerts.emptiedStore : t.alerts.lowStore}>
+                      <span className={`badge ${isOut ? "badge-out" : "badge-low"}`} style={{ fontSize: "0.84rem" }}>
+                        <IconStore width={13} height={13} />
+                        {row.store.name}
+                      </span>
+                    </td>
+
+                    <td className="end num" data-label={t.parts.quantity}>
+                      <span className={`badge num ${isOut ? "badge-out" : "badge-low"}`}>
+                        {row.quantity}
+                        {row.minQuantity > 0 ? ` / ${row.minQuantity}` : ""}
+                      </span>
+                    </td>
+
+                    <td className="end" data-label={t.common.actions}>
+                      <div className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
+                        <Link
+                          href={`/order-notes?part=${encodeURIComponent(partName(row.part, lang))}&ref=${encodeURIComponent(row.part.dimensions ? `${row.part.reference} (${row.part.dimensions})` : row.part.reference)}`}
+                          className="btn btn-navy btn-sm"
+                        >
+                          <IconClipboard />
+                          {t.alerts.orderNow}
                         </Link>
-                        <div className="part-sub">
-                          <span className="ref">{row.part.reference}</span>
-                          {row.part.brand && <span className="badge">{row.part.brand}</span>}
-                          {row.part.dimensions && (
-                            <span className="chip mono" dir="ltr">
-                              <IconRuler />
-                              {row.part.dimensions}
-                            </span>
-                          )}
-                          {row.location && (
-                            <span className="chip">
-                              <IconPin />
-                              {row.location}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td data-label={isOut ? t.alerts.emptiedStore : t.alerts.lowStore}>
-                        <span className={`badge ${isOut ? "badge-out" : "badge-low"}`} style={{ fontSize: "0.84rem" }}>
-                          <IconStore width={13} height={13} />
-                          {row.store.name}
-                        </span>
-                      </td>
-
-                      {crossStore && (
-                        <td data-label={t.alerts.availableElsewhere}>
-                          {otherStores.length > 0 ? (
-                            <div className="row" style={{ gap: 4 }}>
-                              {otherStores.map((os) => (
-                                <span key={os.storeId} className="badge badge-ok">
-                                  {os.store.name}: <span className="num">{os.quantity}</span>
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="muted small">{t.alerts.notElsewhere}</span>
-                          )}
-                        </td>
-                      )}
-
-                      <td className="end num" data-label={t.parts.quantity}>
-                        <span className={`badge num ${isOut ? "badge-out" : "badge-low"}`}>
-                          {row.quantity}
-                          {row.minQuantity > 0 ? ` / ${row.minQuantity}` : ""}
-                        </span>
-                      </td>
-
-                      <td className="end" data-label={t.common.actions}>
-                        <div className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
-                          {canTransfer && otherStores.length > 0 && (
-                            <Link
-                              href={`/transfers/new?partId=${row.part.id}&to=${row.store.id}`}
-                              className="btn btn-secondary btn-sm"
-                            >
-                              <IconTransfer />
-                              {t.alerts.transferFromOther}
-                            </Link>
-                          )}
-                          <Link
-                            href={`/order-notes?part=${encodeURIComponent(partName(row.part, lang))}&ref=${encodeURIComponent(row.part.dimensions ? `${row.part.reference} (${row.part.dimensions})` : row.part.reference)}`}
-                            className="btn btn-navy btn-sm"
-                          >
-                            <IconClipboard />
-                            {t.alerts.orderNow}
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -214,7 +157,15 @@ export default async function AlertsPage({ searchParams }: Props) {
     <div className="stack fade-in">
       <div className="page-head">
         <div>
-          <h1>{t.alerts.title}</h1>
+          <div className="row" style={{ gap: 8 }}>
+            <h1>{t.alerts.title}</h1>
+            {currentStore && (
+              <span className="badge badge-orange" style={{ fontSize: "0.85rem", padding: "4px 10px" }}>
+                <IconStore width={14} height={14} />
+                {currentStore.name}
+              </span>
+            )}
+          </div>
           <p className="hint" style={{ marginTop: 4 }}>
             {t.alerts.subtitle}
           </p>
@@ -239,23 +190,6 @@ export default async function AlertsPage({ searchParams }: Props) {
             {t.alerts.allTab} ({formatInt(outRows.length + lowRows.length)})
           </Link>
         </div>
-
-        {crossStore && stores.length > 1 && (
-          <div className="report-pills">
-            <Link href={tabHref(tab, "all")} className={`report-pill ${!storeId ? "is-active" : ""}`}>
-              {t.store.all}
-            </Link>
-            {stores.map((st) => (
-              <Link
-                key={st.id}
-                href={tabHref(tab, st.id)}
-                className={`report-pill ${storeId === st.id ? "is-active" : ""}`}
-              >
-                {st.name}
-              </Link>
-            ))}
-          </div>
-        )}
       </section>
 
       {(tab === "out" || tab === "all") && renderSection("out", outRows)}
@@ -263,3 +197,4 @@ export default async function AlertsPage({ searchParams }: Props) {
     </div>
   );
 }
+

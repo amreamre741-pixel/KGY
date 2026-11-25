@@ -81,17 +81,12 @@ export async function listParts(opts: {
   storeId: string | null;
   lowOnly: boolean;
   outOnly?: boolean;
-  includeAllStoresStock?: boolean;
-  showAllCatalog?: boolean;
   page: number;
 }) {
-  const hasSearch = opts.q.trim().length > 0;
-  // Strictly isolate each store/warehouse's own goods by default:
-  // When viewing a specific store without a global search, show ONLY parts that belong to this store's stock.
-  const storeMembershipFilter: Prisma.PartWhereInput =
-    opts.storeId && !opts.showAllCatalog && !hasSearch
-      ? { stocks: { some: { storeId: opts.storeId } } }
-      : {};
+  // Complete warehouse isolation: every store ONLY sees the goods belonging to its own warehouse!
+  const storeMembershipFilter: Prisma.PartWhereInput = opts.storeId
+    ? { stocks: { some: { storeId: opts.storeId } } }
+    : {};
 
   const stockFilter: Prisma.PartWhereInput = opts.outOnly
     ? { stocks: { some: outOfStockWhere(opts.storeId) } }
@@ -116,7 +111,7 @@ export async function listParts(opts: {
         stocks: {
           where: {
             store: { active: true },
-            ...(opts.includeAllStoresStock || !opts.storeId ? {} : { storeId: opts.storeId }),
+            ...(opts.storeId ? { storeId: opts.storeId } : {}),
           },
           select: {
             quantity: true,
@@ -132,11 +127,14 @@ export async function listParts(opts: {
   return { total, parts };
 }
 
-/** If a scanned/typed code matches exactly one part (barcode or reference), return its id. */
-export async function findExactPart(code: string): Promise<string | null> {
+/** If a scanned/typed code matches exactly one part in this store's warehouse, return its id. */
+export async function findExactPart(code: string, storeId?: string | null): Promise<string | null> {
   const norm = normalizeRef(code);
   const matches = await db.part.findMany({
-    where: { OR: [{ barcode: code }, ...(norm ? [{ refNorm: norm }] : [])] },
+    where: {
+      ...(storeId ? { stocks: { some: { storeId } } } : {}),
+      OR: [{ barcode: code }, ...(norm ? [{ refNorm: norm }] : [])],
+    },
     select: { id: true },
     take: 2,
   });

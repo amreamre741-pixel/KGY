@@ -21,19 +21,17 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
   const q = (sp.q ?? "").slice(0, 120);
   const lowOnly = sp.low === "1";
   const outOnly = sp.out === "1";
-  const showAllCatalog = sp.all === "1" && can.viewCrossStoreStock(user);
   const page = Math.max(1, Number(sp.page) || 1);
   const storeId = await getActiveStoreId(user);
-  const crossStore = can.viewCrossStoreStock(user);
 
-  // A scanned code that matches exactly one part opens it directly.
+  // A scanned code that matches exactly one part in this store opens it directly.
   if (sp.scan === "1" && q) {
-    const id = await findExactPart(q);
+    const id = await findExactPart(q, storeId);
     if (id) redirect(`/parts/${id}`);
   }
 
   const [{ total, parts }, activeStoresCount, currentStore] = await Promise.all([
-    listParts({ q, storeId, lowOnly, outOnly, includeAllStoresStock: crossStore, showAllCatalog, page }),
+    listParts({ q, storeId, lowOnly, outOnly, page }),
     db.store.count({ where: { active: true } }),
     storeId ? db.store.findUnique({ where: { id: storeId }, select: { name: true } }) : Promise.resolve(null),
   ]);
@@ -49,18 +47,6 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
         : statuses.includes("low") || statuses.includes("out")
           ? "low"
           : "ok";
-
-    // Only show OTHER stores where the part actually has stock > 0 so stores never look mixed
-    const otherStoreStocks = crossStore
-      ? p.stocks
-          .filter((s) => s.storeId !== storeId && s.quantity > 0)
-          .map((s) => ({
-            storeId: s.storeId,
-            storeName: s.store.name,
-            quantity: s.quantity,
-            status: stockStatus(s.quantity, s.minQuantity),
-          }))
-      : [];
 
     return {
       id: p.id,
@@ -79,7 +65,7 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
       location: storeId ? (relevantStocks[0]?.location ?? "") : "",
       salePrice: Number(p.salePrice),
       imageUrl: p.imageUrl,
-      storeStocks: otherStoreStocks,
+      storeStocks: [],
     };
   });
 
@@ -88,7 +74,6 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
     if (q) params.set("q", q);
     if (lowOnly) params.set("low", "1");
     if (outOnly) params.set("out", "1");
-    if (showAllCatalog) params.set("all", "1");
     if (n > 1) params.set("page", String(n));
     return `/parts${params.size ? `?${params}` : ""}`;
   };

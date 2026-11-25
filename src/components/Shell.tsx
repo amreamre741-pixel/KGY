@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTransition, type ReactNode } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import type { Role } from "@prisma/client";
 import { useI18n } from "@/lib/i18n/client";
 import { logout, setActiveStore, toggleLang } from "@/app/actions";
@@ -16,6 +16,7 @@ import {
   IconGlobe,
   IconHome,
   IconLogout,
+  IconMenu,
   IconParts,
   IconReceipt,
   IconStore,
@@ -24,6 +25,7 @@ import {
   IconUpload,
   IconUsers,
   IconWallet,
+  IconX,
 } from "./icons";
 
 type Props = {
@@ -38,13 +40,14 @@ export default function Shell({ user, perms, stores, activeStoreId, children }: 
   const { t } = useI18n();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const links = [
     { href: "/", label: t.nav.home, icon: <IconHome />, show: true, mobile: true },
     { href: "/pos", label: t.nav.pos, icon: <IconCart />, show: true, mobile: true },
     { href: "/parts", label: t.nav.parts, icon: <IconParts />, show: true, mobile: true },
     { href: "/sales", label: t.nav.sales, icon: <IconReceipt />, show: true, mobile: true },
-    { href: "/customers", label: t.nav.customers, icon: <IconWallet />, show: true, mobile: true },
+    { href: "/customers", label: t.nav.customers, icon: <IconWallet />, show: true, mobile: false },
     { href: "/alerts", label: t.nav.alerts, icon: <IconAlert />, show: true, mobile: false },
     { href: "/order-notes", label: t.nav.orderNotes, icon: <IconClipboard />, show: true, mobile: false },
     { href: "/reports", label: t.nav.reports, icon: <IconChart />, show: perms.import, mobile: false },
@@ -59,24 +62,23 @@ export default function Shell({ user, perms, stores, activeStoreId, children }: 
 
   const mobileLinks = links.filter((l) => l.mobile);
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const selectedStoreId = activeStoreId ?? stores[0]?.id ?? "";
 
   const storePicker =
     stores.length > 0 ? (
       <select
-        className="select"
+        className="select store-select"
         aria-label={t.store.label}
-        id="store-switcher"
-        value={activeStoreId ?? "all"}
+        value={selectedStoreId}
         disabled={pending}
         onChange={(e) => {
           const v = e.target.value;
           startTransition(() => setActiveStore(v));
         }}
       >
-        <option value="all">{t.store.all}</option>
         {stores.map((s) => (
           <option key={s.id} value={s.id}>
-            {s.name}
+            🏪 {s.name}
           </option>
         ))}
       </select>
@@ -108,7 +110,7 @@ export default function Shell({ user, perms, stores, activeStoreId, children }: 
         ) : user.storeName ? (
           <div className="sidebar-section">
             <span className="sidebar-label">{t.store.label}</span>
-            <span style={{ paddingInline: 8, color: "#fff", fontWeight: 600 }}>{user.storeName}</span>
+            <span style={{ paddingInline: 8, color: "#fff", fontWeight: 600 }}>🏪 {user.storeName}</span>
           </div>
         ) : null}
 
@@ -148,40 +150,89 @@ export default function Shell({ user, perms, stores, activeStoreId, children }: 
 
       <header className="topbar">
         <Link href="/">{logo}</Link>
-        {storePicker ?? <strong>{user.storeName ?? "KGY"}</strong>}
-        <span className="topbar-spacer" />
-        <Link href="/alerts" className="side-btn" aria-label={t.nav.alerts} title={t.nav.alerts}>
-          <IconAlert />
-        </Link>
-        <Link href="/order-notes" className="side-btn" aria-label={t.nav.orderNotes} title={t.nav.orderNotes}>
-          <IconClipboard />
-        </Link>
-        {perms.import && (
-          <Link href="/reports" className="side-btn" aria-label={t.nav.reports} title={t.nav.reports}>
-            <IconChart />
-          </Link>
-        )}
-        {perms.stores && (
-          <Link href="/stores" className="side-btn" aria-label={t.nav.stores} title={t.nav.stores}>
-            <IconStore />
-          </Link>
-        )}
-        {perms.users && (
-          <Link href="/users" className="side-btn" aria-label={t.nav.users} title={t.nav.users}>
-            <IconUsers />
-          </Link>
-        )}
-        <form action={toggleLang}>
-          <button className="side-btn" type="submit" aria-label={t.nav.language}>
-            <IconGlobe />
-          </button>
-        </form>
-        <form action={logout}>
-          <button className="side-btn" type="submit" aria-label={t.nav.logout}>
-            <IconLogout />
-          </button>
-        </form>
+        <div className="topbar-store">
+          {storePicker ?? <strong className="topbar-store-name">🏪 {user.storeName ?? "KGY"}</strong>}
+        </div>
+        <button
+          type="button"
+          className="topbar-menu-btn"
+          onClick={() => setMenuOpen(true)}
+          aria-label={t.nav.menu}
+        >
+          <IconMenu />
+          <span>{t.nav.menu}</span>
+        </button>
       </header>
+
+      {/* Store switcher quick tabs when Owner has multiple stores */}
+      {stores.length > 1 && (
+        <div className="mobile-store-tabs no-print">
+          {stores.map((s) => {
+            const active = s.id === selectedStoreId;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                disabled={pending}
+                onClick={() => startTransition(() => setActiveStore(s.id))}
+                className={`mobile-store-tab ${active ? "is-active" : ""}`}
+              >
+                <IconStore width={15} height={15} />
+                <span>{s.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {menuOpen && (
+        <div className="mobile-drawer-backdrop" onClick={() => setMenuOpen(false)}>
+          <div className="mobile-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-drawer-head">
+              <div className="user-chip" style={{ padding: 0 }}>
+                <div className="avatar">{user.name.trim().charAt(0).toUpperCase()}</div>
+                <div>
+                  <div className="name">{user.name}</div>
+                  <div className="role">{t.roles[user.role]}</div>
+                </div>
+              </div>
+              <button type="button" className="side-btn" style={{ width: "auto" }} onClick={() => setMenuOpen(false)}>
+                <IconX />
+              </button>
+            </div>
+
+            <nav className="mobile-drawer-nav">
+              {links.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="nav-link"
+                  aria-current={isActive(l.href) ? "page" : undefined}
+                >
+                  {l.icon}
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="sidebar-actions" style={{ marginTop: "auto", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+              <form action={toggleLang}>
+                <button className="side-btn" type="submit">
+                  <IconGlobe />
+                  {t.nav.language}
+                </button>
+              </form>
+              <form action={logout}>
+                <button className="side-btn" type="submit">
+                  <IconLogout />
+                  {t.nav.logout}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="main">
         <div className="container">{children}</div>
@@ -194,7 +245,12 @@ export default function Shell({ user, perms, stores, activeStoreId, children }: 
             {l.label}
           </Link>
         ))}
+        <button type="button" className="nav-link" onClick={() => setMenuOpen(true)} style={{ border: 0, background: "transparent", cursor: "pointer" }}>
+          <IconMenu />
+          {t.nav.menu}
+        </button>
       </nav>
     </div>
   );
 }
+

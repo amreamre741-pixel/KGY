@@ -151,14 +151,14 @@ export default function PartsTable({
                         )}
                         {r.category && <span>{r.category}</span>}
                       </div>
-                      {r.storeStocks.length > 1 && (
+                      {r.storeStocks.length > 0 && (
                         <div className="row" style={{ gap: 4, marginTop: 4 }}>
                           {r.storeStocks.map((st) => (
                             <span
                               key={st.storeId}
-                              className={`badge ${st.status === "out" ? "badge-out" : st.status === "low" ? "badge-low" : "badge-ok"}`}
+                              className="badge badge-ok"
                             >
-                              {st.storeName}: <span className="num">{st.quantity}</span>
+                              🏪 {st.storeName}: <span className="num">{st.quantity}</span>
                             </span>
                           ))}
                         </div>

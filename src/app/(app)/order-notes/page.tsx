@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { getActiveStoreId, requireUser } from "@/lib/auth";
 import OrderNotesClient from "./OrderNotesClient";
 
 export const metadata: Metadata = { title: "ملاحظات الطلبات" };
@@ -12,8 +12,10 @@ type Props = {
 export default async function OrderNotesPage({ searchParams }: Props) {
   const user = await requireUser();
   const sp = await searchParams;
+  const activeStoreId = await getActiveStoreId(user);
 
   const notes = await db.orderNote.findMany({
+    where: activeStoreId ? { OR: [{ storeId: activeStoreId }, { storeId: null }] } : {},
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 250,
     include: {

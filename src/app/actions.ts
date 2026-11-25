@@ -45,8 +45,10 @@ export async function toggleLang() {
 
 export async function setActiveStore(storeId: string) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "OWNER") return;
-  (await cookies()).set(STORE_COOKIE, storeId || "all", {
+  if (!user || user.role !== "OWNER" || !storeId) return;
+  const store = await db.store.findFirst({ where: { id: storeId, active: true }, select: { id: true } });
+  if (!store) return;
+  (await cookies()).set(STORE_COOKIE, store.id, {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax",

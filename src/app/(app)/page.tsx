@@ -23,26 +23,45 @@ import {
   IconWallet,
 } from "@/components/icons";
 
+import { db } from "@/lib/db";
+
 export default async function HomePage() {
   const user = await requireUser();
   const { t, lang } = await getI18n();
   const storeId = await getActiveStoreId(user);
   const showCost = can.seeCost(user);
-  const alertStoreScope = can.viewCrossStoreStock(user) ? storeId : user.storeId;
 
-  const [stats, outList, low, recent] = await Promise.all([
-    homeStats(alertStoreScope),
-    outOfStockList(alertStoreScope, 8),
-    lowStockList(alertStoreScope, 8),
+  const [stats, outList, low, recent, currentStore] = await Promise.all([
+    homeStats(storeId),
+    outOfStockList(storeId, 8),
+    lowStockList(storeId, 8),
     recentMovements(storeId),
+    storeId ? db.store.findUnique({ where: { id: storeId }, select: { name: true } }) : Promise.resolve(null),
   ]);
 
   return (
     <>
       <section className="hero fade-in">
-        <p className="greet">
-          {t.home.greeting}، {user.name} 👋
-        </p>
+        <div className="row spread" style={{ marginBottom: 4 }}>
+          <p className="greet" style={{ margin: 0 }}>
+            {t.home.greeting}، {user.name} 👋
+          </p>
+          {currentStore && (
+            <span
+              className="badge"
+              style={{
+                background: "rgba(242, 107, 29, 0.22)",
+                color: "#fff",
+                border: "1px solid rgba(242, 107, 29, 0.45)",
+                padding: "4px 10px",
+                fontSize: "0.82rem",
+              }}
+            >
+              <IconStore width={14} height={14} />
+              {currentStore.name}
+            </span>
+          )}
+        </div>
         <h1>{t.home.searchTitle}</h1>
         <SearchBar variant="hero" />
       </section>

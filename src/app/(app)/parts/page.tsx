@@ -7,12 +7,12 @@ import { getI18n } from "@/lib/i18n/server";
 import { findExactPart, listParts, PAGE_SIZE, stockStatus } from "@/lib/parts";
 import { formatInt, partName, yearRange } from "@/lib/format";
 import SearchBar from "@/components/SearchBar";
-import { IconPlus } from "@/components/icons";
+import { IconPlus, IconStore } from "@/components/icons";
 import PartsTable, { type PartRow } from "./PartsTable";
 
 export const metadata: Metadata = { title: "السلعة" };
 
-type SP = Promise<{ q?: string; low?: string; out?: string; page?: string; scan?: string }>;
+type SP = Promise<{ q?: string; low?: string; out?: string; all?: string; page?: string; scan?: string }>;
 
 export default async function PartsPage({ searchParams }: { searchParams: SP }) {
   const user = await requireUser();
@@ -21,6 +21,7 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
   const q = (sp.q ?? "").slice(0, 120);
   const lowOnly = sp.low === "1";
   const outOnly = sp.out === "1";
+  const showAllCatalog = sp.all === "1" && can.viewCrossStoreStock(user);
   const page = Math.max(1, Number(sp.page) || 1);
   const storeId = await getActiveStoreId(user);
   const crossStore = can.viewCrossStoreStock(user);
@@ -31,9 +32,10 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
     if (id) redirect(`/parts/${id}`);
   }
 
-  const [{ total, parts }, activeStoresCount] = await Promise.all([
-    listParts({ q, storeId, lowOnly, outOnly, includeAllStoresStock: crossStore, page }),
+  const [{ total, parts }, activeStoresCount, currentStore] = await Promise.all([
+    listParts({ q, storeId, lowOnly, outOnly, includeAllStoresStock: crossStore, showAllCatalog, page }),
     db.store.count({ where: { active: true } }),
+    storeId ? db.store.findUnique({ where: { id: storeId }, select: { name: true } }) : Promise.resolve(null),
   ]);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -47,6 +49,18 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
         : statuses.includes("low") || statuses.includes("out")
           ? "low"
           : "ok";
+
+    // Only show OTHER stores where the part actually has stock > 0 so stores never look mixed
+    const otherStoreStocks = crossStore
+      ? p.stocks
+          .filter((s) => s.storeId !== storeId && s.quantity > 0)
+          .map((s) => ({
+            storeId: s.storeId,
+            storeName: s.store.name,
+            quantity: s.quantity,
+            status: stockStatus(s.quantity, s.minQuantity),
+          }))
+      : [];
 
     return {
       id: p.id,
@@ -65,14 +79,7 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
       location: storeId ? (relevantStocks[0]?.location ?? "") : "",
       salePrice: Number(p.salePrice),
       imageUrl: p.imageUrl,
-      storeStocks: crossStore
-        ? p.stocks.map((s) => ({
-            storeId: s.storeId,
-            storeName: s.store.name,
-            quantity: s.quantity,
-            status: stockStatus(s.quantity, s.minQuantity),
-          }))
-        : [],
+      storeStocks: otherStoreStocks,
     };
   });
 
@@ -81,6 +88,7 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
     if (q) params.set("q", q);
     if (lowOnly) params.set("low", "1");
     if (outOnly) params.set("out", "1");
+    if (showAllCatalog) params.set("all", "1");
     if (n > 1) params.set("page", String(n));
     return `/parts${params.size ? `?${params}` : ""}`;
   };
@@ -103,7 +111,15 @@ export default async function PartsPage({ searchParams }: { searchParams: SP }) 
     <>
       <div className="page-head">
         <div>
-          <h1>{t.parts.title}</h1>
+          <div className="row" style={{ gap: 8 }}>
+            <h1>{t.parts.title}</h1>
+            {currentStore && (
+              <span className="badge badge-orange" style={{ fontSize: "0.85rem", padding: "4px 10px" }}>
+                <IconStore width={14} height={14} />
+                {currentStore.name}
+              </span>
+            )}
+          </div>
           <p className="sub">
             <span className="num">{formatInt(total)}</span> {t.parts.results}
           </p>

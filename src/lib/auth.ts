@@ -65,12 +65,19 @@ export const STORE_COOKIE = "kgy_store";
 
 /**
  * The store the user is currently looking at.
- * Owners can switch (or pick "all" = null); others are locked to their own store.
+ * Every store/warehouse is strictly isolated on its own:
+ * - Staff (MANAGER / SELLER) are locked to their assigned store.
+ * - OWNER defaults to the first active store and switches between stores individually.
  */
 export async function getActiveStoreId(user: CurrentUser): Promise<string | null> {
   if (!can.seeAllStores(user)) return user.storeId;
+  const stores = await db.store.findMany({
+    where: { active: true },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (stores.length === 0) return null;
   const value = (await cookies()).get(STORE_COOKIE)?.value;
-  if (!value || value === "all") return null;
-  const exists = await db.store.findFirst({ where: { id: value, active: true }, select: { id: true } });
-  return exists ? value : null;
+  if (value && stores.some((s) => s.id === value)) return value;
+  return stores[0].id;
 }

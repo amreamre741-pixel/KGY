@@ -82,17 +82,25 @@ export async function listParts(opts: {
   lowOnly: boolean;
   outOnly?: boolean;
   includeAllStoresStock?: boolean;
+  showAllCatalog?: boolean;
   page: number;
 }) {
-  const stockFilter = opts.outOnly
-    ? { OR: [{ stocks: { some: outOfStockWhere(opts.storeId) } }, { stocks: { none: { store: { active: true } } } }] }
+  const hasSearch = opts.q.trim().length > 0;
+  // Strictly isolate each store/warehouse's own goods by default:
+  // When viewing a specific store without a global search, show ONLY parts that belong to this store's stock.
+  const storeMembershipFilter: Prisma.PartWhereInput =
+    opts.storeId && !opts.showAllCatalog && !hasSearch
+      ? { stocks: { some: { storeId: opts.storeId } } }
+      : {};
+
+  const stockFilter: Prisma.PartWhereInput = opts.outOnly
+    ? { stocks: { some: outOfStockWhere(opts.storeId) } }
     : opts.lowOnly
       ? { stocks: { some: lowStockWhere(opts.storeId) } }
       : {};
 
   const where: Prisma.PartWhereInput = {
-    ...partSearchWhere(opts.q),
-    ...stockFilter,
+    AND: [partSearchWhere(opts.q), storeMembershipFilter, stockFilter],
   };
   const [total, parts] = await Promise.all([
     db.part.count({ where }),
@@ -140,7 +148,7 @@ export async function homeStats(storeId: string | null) {
   const storeFilter = storeId ? Prisma.sql`AND s."storeId" = ${storeId}` : Prisma.empty;
 
   const [partCount, units, valueRows, lowCount, outCount, pendingOrders] = await Promise.all([
-    db.part.count(),
+    storeId ? db.stock.count({ where: { storeId } }) : db.part.count(),
     db.stock.aggregate({ where: stockWhere, _sum: { quantity: true } }),
     db.$queryRaw<{ cost_value: Prisma.Decimal | null; sale_value: Prisma.Decimal | null }[]>`
       SELECT
@@ -152,7 +160,7 @@ export async function homeStats(storeId: string | null) {
       WHERE st."active" = true AND s."quantity" > 0 ${storeFilter}`,
     db.stock.count({ where: runningLowWhere(storeId) }),
     db.stock.count({ where: outOfStockWhere(storeId) }),
-    db.orderNote.count({ where: { status: "PENDING" } }),
+    db.orderNote.count({ where: { status: "PENDING", ...(storeId ? { storeId } : {}) } }),
   ]);
 
   return {

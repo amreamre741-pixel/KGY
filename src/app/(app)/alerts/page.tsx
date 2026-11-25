@@ -24,9 +24,9 @@ export default async function AlertsPage({ searchParams }: Props) {
     : [];
 
   let storeId: string | null = await getActiveStoreId(user);
-  if (crossStore) {
-    if (!sp.store || sp.store === "all") {
-      storeId = sp.store === "all" ? null : user.role === "MANAGER" && !sp.store ? null : storeId;
+  if (crossStore && sp.store !== undefined) {
+    if (sp.store === "all") {
+      storeId = null;
     } else if (stores.some((s) => s.id === sp.store)) {
       storeId = sp.store;
     }

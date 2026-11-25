@@ -96,6 +96,7 @@ export async function savePart(_prev: FormState, formData: FormData): Promise<Fo
     .filter((s) => allowed.has(s.storeId))
     .map((s) => ({
       storeId: s.storeId,
+      hasInput: Boolean(String(s.quantity ?? "").trim() || String(s.minQuantity ?? "").trim() || String(s.location ?? "").trim()),
       quantity: Math.max(0, toInt(s.quantity)),
       minQuantity: Math.max(0, toInt(s.minQuantity)),
       location: str(s.location, 40),
@@ -143,16 +144,17 @@ export async function savePart(_prev: FormState, formData: FormData): Promise<Fo
   let partId: string;
   try {
     if (p.id) {
-      const existing = await db.part.findUnique({ where: { id: p.id }, select: { id: true } });
+      const existing = await db.part.findUnique({ where: { id: p.id }, include: { stocks: { select: { storeId: true } } } });
       if (!existing) return { error: t.common.error };
       partId = p.id;
+      const existingStores = new Set(existing.stocks.map((x) => x.storeId));
+      const stocksToSave = stocks.filter((s) => existingStores.has(s.storeId) || s.minQuantity > 0 || s.location !== "");
       await db.$transaction([
         db.part.update({ where: { id: partId }, data: { ...data, barcode: barcodeInput || undefined } }),
         db.vehicleCompat.deleteMany({ where: { partId } }),
         db.vehicleCompat.createMany({ data: compat.map((c) => ({ ...c, partId })) }),
-        // On edit, quantities change only through "adjust" (keeps the history honest);
-        // here we only update the min quantity and the shelf location.
-        ...stocks.map((s) =>
+        // On edit, only touch stores that already hold this part or where user explicitly set minQuantity/location.
+        ...stocksToSave.map((s) =>
           db.stock.upsert({
             where: { partId_storeId: { partId, storeId: s.storeId } },
             update: { minQuantity: s.minQuantity, location: s.location },
@@ -162,12 +164,25 @@ export async function savePart(_prev: FormState, formData: FormData): Promise<Fo
       ]);
     } else {
       const barcode = barcodeInput || (await generateBarcode());
+      // Only create warehouse stock entries for stores where user entered stock/settings (or fallback to first store if all blank)
+      let stocksToCreate = stocks.filter((s) => s.hasInput);
+      if (stocksToCreate.length === 0 && stocks.length > 0) {
+        stocksToCreate = [stocks[0]];
+      }
       const created = await db.$transaction(async (tx) => {
         const part = await tx.part.create({
           data: { ...data, barcode, compat: { create: compat } },
         });
-        for (const s of stocks) {
-          await tx.stock.create({ data: { partId: part.id, ...s } });
+        for (const s of stocksToCreate) {
+          await tx.stock.create({
+            data: {
+              partId: part.id,
+              storeId: s.storeId,
+              quantity: s.quantity,
+              minQuantity: s.minQuantity,
+              location: s.location,
+            },
+          });
           if (s.quantity > 0) {
             await tx.stockMovement.create({
               data: {

@@ -478,6 +478,7 @@
     } catch {}
 
     let activeTab = "dashboard";
+    let dashView = "daily";
     let monthKey = todayISO().slice(0, 7);
     let searchQuery = "";
     let selectedSubItems = [];
@@ -506,6 +507,7 @@
     function closeModal() { backdrop.classList.remove("open"); selectedSubItems = []; }
 
     window.setTab = (t) => { activeTab = t; render(); };
+    window.setDashView = (v) => { dashView = v; render(); };
     window.changeMonth = (d) => { monthKey = shiftMonth(monthKey, d); render(); };
     window.toggleCurrency = () => { state.currencyMode = state.currencyMode === "dzd" ? "centime" : "dzd"; save(); };
     window.toggleDarkMode = () => { state.darkMode = !state.darkMode; save(); };
@@ -772,6 +774,46 @@
       });
       state.transactions = state.transactions.filter(t => t.id !== id);
       save();
+    };
+
+    window.openEditTxModal = (id) => {
+      const tx = state.transactions.find(t => t.id === id);
+      if (!tx) return;
+      openModal(`
+        <h3>✏️ تعديل العملية</h3>
+        <form id="etxForm">
+          <div class="ms-field"><label>المبلغ (دج)</label><input id="etxAmt" type="number" min="1" required class="ms-input" value="${tx.amount}" /></div>
+          <div class="ms-field"><label>التاريخ</label><input id="etxDate" type="date" class="ms-input" value="${tx.date}" /></div>
+          <div class="ms-field"><label>الملاحظة</label><input id="etxNote" type="text" class="ms-input" value="${tx.note || ""}" /></div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">حفظ التعديل</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("etxForm").onsubmit = (e) => {
+        e.preventDefault();
+        const newAmt = Number(document.getElementById("etxAmt").value);
+        if (!newAmt || newAmt <= 0) return;
+        const diff = newAmt - tx.amount;
+        state.wallets = state.wallets.map(w => {
+          if (tx.type === "expense" && w.id === tx.walletId) return { ...w, balance: w.balance - diff };
+          if (tx.type === "income" && w.id === tx.walletId) return { ...w, balance: w.balance + diff };
+          if (tx.type === "transfer") {
+            if (w.id === tx.walletId) return { ...w, balance: w.balance - diff };
+            if (w.id === tx.toWalletId) return { ...w, balance: w.balance + diff };
+          }
+          return w;
+        });
+        state.transactions = state.transactions.map(t => t.id === id ? {
+          ...t,
+          amount: newAmt,
+          date: document.getElementById("etxDate").value || t.date,
+          note: document.getElementById("etxNote").value.trim(),
+        } : t);
+        closeModal();
+        save();
+      };
     };
 
     // --- Shopping List (ورقة القضيان) ---
@@ -1371,6 +1413,13 @@
       let mainHtml = "";
       if (activeTab === "dashboard") {
         mainHtml = `
+          <!-- Clean Dashboard View Switcher -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--ms-surface);padding:6px;border-radius:14px;border:1px solid var(--ms-border)">
+            <button class="ms-tab-btn ${dashView === "daily" ? "active" : ""}" style="border:none;justify-content:center" onclick="setDashView('daily')">⚡ اليومي (السريع)</button>
+            <button class="ms-tab-btn ${dashView === "analytics" ? "active" : ""}" style="border:none;justify-content:center" onclick="setDashView('analytics')">🧠 التحليلات والذكاء</button>
+          </div>
+
+          ${dashView === "analytics" ? `
           <!-- Financial Health Score -->
           <section class="ms-card" style="padding:14px 16px">
             <div class="ms-section-head" style="margin-bottom:8px">
@@ -1427,8 +1476,9 @@
                 </div>`;
               })()}
             </div>
-          </div>
+          </div>` : ""}
 
+          ${dashView === "daily" ? `
           <!-- Quick 1-Tap Spends -->
           <section class="ms-card" style="padding:12px 14px">
             <div class="ms-section-head" style="margin-bottom:8px">
@@ -1532,8 +1582,9 @@
               <div class="ms-kpi-title"><span>صافي الادخار</span><span class="ms-badge ${mNet >= 0 ? "ms-badge-ok" : "ms-badge-danger"}">${mInc > 0 ? sRate + "%" : "0%"}</span></div>
               <div class="ms-kpi-num ${mNet >= 0 ? "ms-num-primary" : "ms-num-expense"}">${fmt(mNet)}</div>
             </div>
-          </div>
+          </div>` : ""}
 
+          ${dashView === "analytics" ? `
           <!-- Monthly Work Days Calendar -->
           <section class="ms-card">
             <div class="ms-section-head">
@@ -1621,8 +1672,9 @@
               </div>
               ${monthsToGoal ? `<div style="font-size:12px;color:var(--ms-muted)">🚀 بهذه الوتيرة ستصل لهدف <strong>«${mainGoal.title}»</strong> خلال حوالي <strong>${monthsToGoal} ${monthsToGoal === 1 ? "شهر" : "أشهر"}</strong>!</div>` : ""}
             </section>`;
-          })()}
+          })()}` : ""}
 
+          ${dashView === "daily" ? `
           <!-- Fixed Monthly Bills -->
           <section class="ms-card">
             <div class="ms-section-head">
@@ -1688,13 +1740,14 @@
                       </div>
                       <div class="ms-tx-right">
                         <span class="ms-tx-amount ${isExp ? "ms-num-expense" : isInc ? "ms-num-income" : "ms-num-primary"}">${isExp ? "−" : isInc ? "+" : ""}${fmt(tx.amount)}</span>
-                        <button class="ms-icon-btn" onclick="deleteTx('${tx.id}')">✕</button>
+                        <button class="ms-icon-btn" onclick="openEditTxModal('${tx.id}')" title="تعديل">✏️</button>
+                        <button class="ms-icon-btn" onclick="deleteTx('${tx.id}')" title="حذف">✕</button>
                       </div>
                     </div>`;
                   }).join("")}
                 </div>`}
             </section>
-          </div>
+          </div>` : ""}
         `;
       } else if (activeTab === "shopping") {
         const pending = state.shoppingList.filter(s => !s.done).length;

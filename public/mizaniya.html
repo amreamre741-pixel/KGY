@@ -277,6 +277,44 @@
       border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
     }
     .ms-done { text-decoration: line-through; opacity: 0.55; }
+    .ms-cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+    .ms-cal-day {
+      background: var(--ms-surface-2);
+      border: 1px solid var(--ms-border);
+      border-radius: 10px;
+      padding: 6px 2px;
+      text-align: center;
+      min-height: 46px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    .ms-cal-day.worked {
+      background: var(--ms-income-soft);
+      border-color: var(--ms-income);
+    }
+    .ms-cal-day.today {
+      box-shadow: 0 0 0 2px var(--ms-primary);
+    }
+    .ms-cal-num { font-size: 11px; font-weight: 700; color: var(--ms-muted); }
+    .ms-cal-day.worked .ms-cal-num { color: var(--ms-income); }
+    .ms-cal-amt { font-size: 10px; font-weight: 700; color: var(--ms-income); }
+    .ms-compare-row {
+      display: flex; gap: 10px; flex-wrap: wrap;
+    }
+    .ms-compare-pill {
+      flex: 1; min-width: 200px;
+      background: var(--ms-surface-2); border: 1px solid var(--ms-border);
+      border-radius: 12px; padding: 10px 12px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      font-size: 12px; font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -1010,6 +1048,26 @@
       upcomingPlans.sort((a, b) => a.days - b.days);
       const totalDailyNeeded = upcomingPlans.reduce((s, p) => s + p.perDay, 0);
 
+      const prevMonthKey = shiftMonth(monthKey, -1);
+      const prevTxs = state.transactions.filter(t => t.date.startsWith(prevMonthKey));
+      const prevInc = prevTxs.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+      const prevExp = prevTxs.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+      const incDiff = mInc - prevInc;
+      const expDiff = mExp - prevExp;
+
+      const [cy, cm] = monthKey.split("-").map(Number);
+      const daysInMonth = new Date(cy, cm, 0).getDate();
+      const incomeByDay = {};
+      mTxs.forEach(t => {
+        if (t.type === "income") {
+          const dayNum = Number(t.date.slice(8, 10));
+          incomeByDay[dayNum] = (incomeByDay[dayNum] || 0) + t.amount;
+        }
+      });
+      const bestDayAmt = Object.values(incomeByDay).reduce((mx, v) => Math.max(mx, v), 0);
+      const isThisMonth = today.startsWith(monthKey);
+      const todayDayNum = isThisMonth ? Number(today.slice(8, 10)) : -1;
+
       let mainHtml = "";
       if (activeTab === "dashboard") {
         mainHtml = `
@@ -1028,6 +1086,22 @@
               <select class="ms-select" style="width:auto;padding:5px 10px;font-size:12px" onchange="setAutoSavePct(this.value)">
                 ${[0, 10, 15, 20, 25, 30, 40].map(p => `<option value="${p}" ${(state.autoSavePct || 0) === p ? "selected" : ""}>${p === 0 ? "إيقاف (0%)" : p + "%"}</option>`).join("")}
               </select>
+            </div>
+          </div>
+
+          <!-- Month vs Previous Month Comparison -->
+          <div class="ms-compare-row">
+            <div class="ms-compare-pill">
+              <span>📈 مقارنة المداخيل بالشهر الماضي</span>
+              <span class="ms-badge ${incDiff >= 0 ? "ms-badge-ok" : "ms-badge-danger"}">
+                ${incDiff >= 0 ? "+" : "−"}${fmt(Math.abs(incDiff))}
+              </span>
+            </div>
+            <div class="ms-compare-pill">
+              <span>📉 مقارنة المصاريف بالشهر الماضي</span>
+              <span class="ms-badge ${expDiff <= 0 ? "ms-badge-ok" : "ms-badge-danger"}">
+                ${expDiff <= 0 ? `أقل بـ ${fmt(Math.abs(expDiff))} 👏` : `أكثر بـ ${fmt(expDiff)}`}
+              </span>
             </div>
           </div>
 
@@ -1068,6 +1142,27 @@
               <div class="ms-kpi-num ${mNet >= 0 ? "ms-num-primary" : "ms-num-expense"}">${fmt(mNet)}</div>
             </div>
           </div>
+
+          <!-- Monthly Work Days Calendar -->
+          <section class="ms-card">
+            <div class="ms-section-head">
+              <h2>📅 تقويم أيام العمل (${workDaysCount} من ${daysInMonth} يوم)</h2>
+              ${bestDayAmt > 0 ? `<span class="ms-badge ms-badge-ok">🏆 أفضل يوم: ${fmt(bestDayAmt)}</span>` : ""}
+            </div>
+            <div class="ms-cal-grid">
+              ${Array.from({ length: daysInMonth }, (_, i) => {
+                const day = i + 1;
+                const amt = incomeByDay[day] || 0;
+                const worked = amt > 0;
+                const isBest = worked && amt === bestDayAmt && bestDayAmt > 0;
+                const isToday = day === todayDayNum;
+                return `<div class="ms-cal-day ${worked ? "worked" : ""} ${isToday ? "today" : ""}" title="يوم ${day}: ${fmt(amt)}">
+                  <div class="ms-cal-num">${isBest ? "🏆" : ""}${day}</div>
+                  ${worked ? `<div class="ms-cal-amt">${amt >= 1000 ? (amt / 1000).toFixed(amt % 1000 === 0 ? 0 : 1) + "k" : amt}</div>` : `<div style="font-size:10px;opacity:0.35">—</div>`}
+                </div>`;
+              }).join("")}
+            </div>
+          </section>
 
           <!-- Fixed Monthly Bills -->
           <section class="ms-card">

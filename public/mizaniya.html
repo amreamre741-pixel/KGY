@@ -797,15 +797,52 @@
     window.payFixedBill = (id) => {
       const fb = state.fixedBills.find(b => b.id === id);
       if (!fb) return;
-      const wid = state.wallets[0]?.id;
-      if (!wid) return;
-      state.fixedBills = state.fixedBills.map(b => b.id === id ? { ...b, lastPaidMonth: monthKey } : b);
-      state.wallets = state.wallets.map(w => w.id === wid ? { ...w, balance: w.balance - fb.amount } : w);
-      state.transactions.unshift({
-        id: "tx_" + Date.now(), type: "expense", amount: fb.amount, categoryId: fb.categoryId,
-        itemEmoji: fb.emoji, walletId: wid, note: fb.title, date: todayISO(),
-      });
-      save();
+      const wOpts = state.wallets.map(w => `<option value="${w.id}">${w.emoji} ${w.name} (${fmt(w.balance)})</option>`).join("");
+      openModal(`
+        <h3>دفع: ${fb.emoji} ${fb.title}</h3>
+        <form id="pfbForm">
+          <div class="ms-field">
+            <label>عدد الأشهر التي ستدفعها</label>
+            <select id="pfbMonths" class="ms-select">
+              <option value="1">1 شهر — ${fmt(fb.amount)}</option>
+              <option value="2">2 شهرين — ${fmt(fb.amount * 2)}</option>
+              <option value="3">3 أشهر — ${fmt(fb.amount * 3)}</option>
+              <option value="4">4 أشهر — ${fmt(fb.amount * 4)}</option>
+              <option value="6">6 أشهر — ${fmt(fb.amount * 6)}</option>
+              <option value="12">12 شهر (سنة) — ${fmt(fb.amount * 12)}</option>
+            </select>
+          </div>
+          <div class="ms-field">
+            <label>خصم من المحفظة</label>
+            <select id="pfbWal" class="ms-select">${wOpts}</select>
+          </div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">✓ تأكيد الدفع</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("pfbForm").onsubmit = (e) => {
+        e.preventDefault();
+        const months = Math.max(1, Number(document.getElementById("pfbMonths").value) || 1);
+        const wid = document.getElementById("pfbWal").value;
+        const totalAmt = fb.amount * months;
+        const startMonth = (fb.paidUntilMonth && fb.paidUntilMonth >= monthKey)
+          ? shiftMonth(fb.paidUntilMonth, 1)
+          : monthKey;
+        const newPaidUntil = shiftMonth(startMonth, months - 1);
+
+        state.fixedBills = state.fixedBills.map(b => b.id === id ? { ...b, lastPaidMonth: newPaidUntil, paidUntilMonth: newPaidUntil } : b);
+        state.wallets = state.wallets.map(w => w.id === wid ? { ...w, balance: w.balance - totalAmt } : w);
+        state.transactions.unshift({
+          id: "tx_" + Date.now(), type: "expense", amount: totalAmt, categoryId: fb.categoryId,
+          itemEmoji: fb.emoji, walletId: wid,
+          note: months > 1 ? `${fb.title} (${months} أشهر)` : fb.title,
+          date: todayISO(),
+        });
+        closeModal();
+        save();
+      };
     };
 
     window.deleteFixedBill = (id) => { state.fixedBills = state.fixedBills.filter(b => b.id !== id); save(); };
@@ -1041,16 +1078,18 @@
             ${state.fixedBills.length === 0 ? `<div class="ms-empty" style="padding:12px">أضف التزاماتك الشهرية (الكراء، الإنترنت...) لدفعها بضغطة زر.</div>` : `
               <div class="ms-fixed-grid">
                 ${state.fixedBills.map(fb => {
-                  const isPaid = fb.lastPaidMonth === monthKey;
+                  const paidUntil = fb.paidUntilMonth || fb.lastPaidMonth || "";
+                  const isPaid = paidUntil >= monthKey;
                   return `<div class="ms-fixed-chip">
                     <div style="display:flex;justify-content:space-between;align-items:center">
                       <span style="font-weight:700;font-size:13px">${fb.emoji} ${fb.title}</span>
                       <button class="ms-icon-btn" onclick="deleteFixedBill('${fb.id}')">✕</button>
                     </div>
-                    <div style="font-size:13px;color:var(--ms-muted);font-weight:600">${fmt(fb.amount)}</div>
+                    <div style="font-size:13px;color:var(--ms-muted);font-weight:600">${fmt(fb.amount)} / شهر</div>
                     ${isPaid
-                      ? `<span class="ms-badge ms-badge-ok" style="justify-content:center">✓ مدفوع هذا الشهر</span>`
-                      : `<button class="ms-btn ms-btn-sm" onclick="payFixedBill('${fb.id}')">دفع هذا الشهر</button>`}
+                      ? `<span class="ms-badge ms-badge-ok" style="justify-content:center">✓ مدفوع حتى ${formatMonthAr(paidUntil)}</span>
+                         <button class="ms-btn-outline ms-btn-sm" onclick="payFixedBill('${fb.id}')">+ دفع مسبق</button>`
+                      : `<button class="ms-btn ms-btn-sm" onclick="payFixedBill('${fb.id}')">دفع (شهر أو أكثر)</button>`}
                   </div>`;
                 }).join("")}
               </div>`}

@@ -95,9 +95,19 @@ export async function POST(req: Request) {
       .map((s) => (s ?? "").trim())
       .filter(Boolean);
 
+    const storeId = await getActiveStoreId(user);
     const matchedIds = new Set<string>();
     for (const q of queries) {
-      const hits = await db.part.findMany({ where: partSearchWhere(q), select: { id: true }, take: 10 });
+      const hits = await db.part.findMany({
+        where: {
+          AND: [
+            partSearchWhere(q),
+            storeId ? { stocks: { some: { storeId } } } : {},
+          ],
+        },
+        select: { id: true },
+        take: 10,
+      });
       for (const h of hits) matchedIds.add(h.id);
     }
 

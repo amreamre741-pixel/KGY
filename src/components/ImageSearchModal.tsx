@@ -92,8 +92,9 @@ export default function ImageSearchModal({ open, onClose }: { open: boolean; onC
         }
       }
 
-      scored.sort((a, b) => b.score - a.score);
-      setMatches(scored.slice(0, 8));
+      const filtered = scored.filter((m) => m.aiHit || m.score >= 76);
+      filtered.sort((a, b) => b.score - a.score);
+      setMatches(filtered.slice(0, 8));
     } finally {
       setLoading(false);
     }

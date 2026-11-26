@@ -54,6 +54,7 @@ export default function Shell({ user, perms, stores, activeStoreId, children }: 
     { href: "/purchases", label: t.nav.purchases, icon: <IconBoxIn />, show: perms.import, mobile: false },
     { href: "/suppliers", label: t.nav.suppliers, icon: <IconTruck />, show: perms.import, mobile: false },
     { href: "/transfers", label: t.nav.transfers, icon: <IconTransfer />, show: perms.import, mobile: false },
+    { href: "/audit", label: "جرد المخزون", icon: <IconClipboard />, show: perms.import, mobile: false },
     { href: "/zakat", label: t.nav.zakat, icon: <IconCoins />, show: perms.stores, mobile: false },
     { href: "/import", label: t.nav.import, icon: <IconUpload />, show: perms.import, mobile: false },
     { href: "/stores", label: t.nav.stores, icon: <IconStore />, show: perms.stores, mobile: false },

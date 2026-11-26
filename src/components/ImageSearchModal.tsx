@@ -65,17 +65,38 @@ export default function ImageSearchModal({ open, onClose }: { open: boolean; onC
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ imageUrl: dataUrl }),
         })
-          .then((r) => r.json() as Promise<{ aiUsed?: boolean; detectedText?: string; matchedIds?: string[] }>)
-          .catch(() => ({ aiUsed: false, detectedText: "", matchedIds: [] })),
+          .then(
+            (r) =>
+              r.json() as Promise<{
+                aiUsed?: boolean;
+                detectedText?: string;
+                matchedIds?: string[];
+                matches?: Array<{ id: string; score: number }>;
+              }>,
+          )
+          .catch(() => ({ aiUsed: false, detectedText: "", matchedIds: [], matches: [] })),
       ]);
 
       const candidates = invRes.parts ?? [];
       if (aiRes.detectedText) setDetected(aiRes.detectedText);
-      const aiSet = new Set(aiRes.matchedIds ?? []);
 
       if (candidates.length === 0) {
         setNoPhotos(true);
         setLoading(false);
+        return;
+      }
+
+      if (aiRes.aiUsed) {
+        const aiScores = new Map<string, number>();
+        for (const item of aiRes.matches ?? []) aiScores.set(item.id, item.score);
+        for (const id of aiRes.matchedIds ?? []) {
+          if (!aiScores.has(id)) aiScores.set(id, 95);
+        }
+        const aiMatches: RankedMatch[] = candidates
+          .filter((c) => aiScores.has(c.id))
+          .map((c) => ({ ...c, score: aiScores.get(c.id) ?? 90, aiHit: true }))
+          .sort((a, b) => b.score - a.score);
+        setMatches(aiMatches.slice(0, 8));
         return;
       }
 
@@ -84,15 +105,13 @@ export default function ImageSearchModal({ open, onClose }: { open: boolean; onC
         try {
           const sig = await computeImageSignature(c.imageUrl);
           const visualScore = compareSignatures(querySig, sig);
-          const aiHit = aiSet.has(c.id);
-          const score = aiHit ? Math.max(visualScore, 95) : visualScore;
-          scored.push({ ...c, score, aiHit });
+          scored.push({ ...c, score: visualScore, aiHit: false });
         } catch {
           // skip unreadable candidate image
         }
       }
 
-      const filtered = scored.filter((m) => m.aiHit || m.score >= 76);
+      const filtered = scored.filter((m) => m.score >= 76);
       filtered.sort((a, b) => b.score - a.score);
       setMatches(filtered.slice(0, 8));
     } finally {

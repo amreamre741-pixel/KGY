@@ -28,9 +28,16 @@ export default async function SalesPage() {
       orderBy: { createdAt: "desc" },
       take: 80,
       include: {
-        customer: { select: { name: true } },
+        customer: { select: { name: true, phone: true } },
         store: { select: { name: true } },
         user: { select: { name: true } },
+        items: {
+          select: {
+            quantity: true,
+            unitPrice: true,
+            part: { select: { nameAr: true, reference: true } },
+          },
+        },
         _count: { select: { items: true } },
       },
     }),
@@ -118,11 +125,42 @@ export default async function SalesPage() {
                         {debt > 0 ? <span style={{ color: "var(--warn)", fontWeight: 600 }}>{formatDA(debt, lang)}</span> : "—"}
                       </td>
                       <td className="end" data-label={t.sales.status}>
-                        <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+                        <div className="row" style={{ gap: 6, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
                           {refunded > 0 && <span className="badge badge-out">{t.sales.returnedBadge}</span>}
                           <span className={`badge ${debt > 0 ? "badge-low" : "badge-ok"}`}>
                             {debt > 0 ? t.sales.creditBadge : t.sales.paidBadge}
                           </span>
+                          {(() => {
+                            const digits = (s.customer?.phone || "").replace(/\D/g, "");
+                            const intlPhone = digits.startsWith("0") ? `213${digits.slice(1)}` : digits;
+                            const lines = s.items.map(
+                              (it) => `• ${it.part.nameAr} (${it.part.reference}) × ${it.quantity} = ${formatDA(Number(it.unitPrice) * it.quantity, lang)}`
+                            );
+                            const msg = [
+                              `🧾 فاتورة محل KGY لقطع الغيار`,
+                              `رقم الفاتورة: ${s.number}`,
+                              s.customer?.name ? `الزبون: ${s.customer.name}` : "",
+                              `----------------`,
+                              ...lines,
+                              `----------------`,
+                              `الإجمالي: ${formatDA(Number(s.total), lang)}`,
+                              debt > 0 ? `المتبقي (كريدي): ${formatDA(debt, lang)}` : `الحالة: مدفوعة بالكامل ✓`,
+                            ]
+                              .filter(Boolean)
+                              .join("\n");
+                            const waUrl = `https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`;
+                            return (
+                              <a
+                                href={waUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-sm btn-secondary"
+                                title="إرسال الفاتورة عبر واتساب"
+                              >
+                                📲 واتساب
+                              </a>
+                            );
+                          })()}
                         </div>
                       </td>
                     </tr>

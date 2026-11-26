@@ -509,6 +509,11 @@
     window.toggleCurrency = () => { state.currencyMode = state.currencyMode === "dzd" ? "centime" : "dzd"; save(); };
     window.toggleDarkMode = () => { state.darkMode = !state.darkMode; save(); };
     window.setAutoSavePct = (v) => { state.autoSavePct = Math.max(0, Math.min(80, Number(v) || 0)); save(); };
+    window.toggleNoWorkToday = () => {
+      const t = todayISO();
+      state.noWorkDate = state.noWorkDate === t ? "" : t;
+      save();
+    };
     window.updateSearch = (val) => { searchQuery = val; render(); const el = document.getElementById("txSearchInput"); if (el) { el.focus(); el.setSelectionRange(val.length, val.length); } };
 
     // --- Sub-items + Custom items + Favorites ---
@@ -1357,8 +1362,23 @@
               <select class="ms-select" style="width:auto;padding:5px 10px;font-size:12px" onchange="setAutoSavePct(this.value)">
                 ${[0, 10, 15, 20, 25, 30, 40].map(p => `<option value="${p}" ${(state.autoSavePct || 0) === p ? "selected" : ""}>${p === 0 ? "إيقاف (0%)" : p + "%"}</option>`).join("")}
               </select>
+              <button class="${state.noWorkDate === today ? "ms-btn" : "ms-btn-outline"} ms-btn-sm" onclick="toggleNoWorkToday()">
+                ${state.noWorkDate === today ? "✓ وضع يوم بدون عمل مفعّل" : "🧘 يوم بدون عمل"}
+              </button>
             </div>
           </div>
+
+          ${state.noWorkDate === today ? (() => {
+            const cashOnly = state.wallets.filter(w => w.id !== "w_box").reduce((s, w) => s + w.balance, 0);
+            const tightCap = Math.max(200, Math.round(avgDailyExp * 0.5));
+            return `
+            <div class="ms-card" style="border-color:#f59e0b;background:var(--ms-warn-soft);padding:12px 14px">
+              <div style="font-weight:700;font-size:13px;color:var(--ms-warn)">🧘 وضع التوفير ليوم بدون عمل مفعّل</div>
+              <div style="font-size:12px;margin-top:4px;color:var(--ms-text)">
+                الكاش المتاح بدون الشحيحة: <strong>${fmt(cashOnly)}</strong> · حاول ألا تتجاوز اليوم <strong>${fmt(tightCap)}</strong> حتى تحافظ على مدخراتك لغاية يوم العمل القادم!
+              </div>
+            </div>`;
+          })() : ""}
 
           <!-- Weekly Summary (Last 7 Days) -->
           <div class="ms-compare-row">
@@ -1463,6 +1483,43 @@
                   </div>
                 `).join("")}
               </div>
+            </section>`;
+          })()}
+
+          <!-- Financial Time Machine (Future Forecast) -->
+          ${(() => {
+            const estMonthlySave = mNet > 0
+              ? mNet
+              : Math.round((avgPerWorkDay || 2000) * 18 * ((state.autoSavePct || 20) / 100));
+            const curBox = state.wallets.find(w => w.id === "w_box")?.balance || 0;
+            const in3 = curBox + estMonthlySave * 3;
+            const in6 = curBox + estMonthlySave * 6;
+            const in12 = curBox + estMonthlySave * 12;
+            const mainGoal = state.goals.find(g => g.saved < g.target);
+            const monthsToGoal = mainGoal && estMonthlySave > 0
+              ? Math.ceil((mainGoal.target - mainGoal.saved) / estMonthlySave)
+              : null;
+            return `
+            <section class="ms-card">
+              <div class="ms-section-head" style="margin-bottom:8px">
+                <h2>🔮 آلة الزمن المالية (توقع ادخارك)</h2>
+                <span class="ms-badge ms-badge-ok">وتيرة شهرية: ~${fmt(estMonthlySave)}</span>
+              </div>
+              <div class="ms-kpi-grid" style="margin-bottom:${monthsToGoal ? "10px" : "0"}">
+                <div class="ms-compare-pill" style="flex-direction:column;align-items:flex-start;min-width:0">
+                  <span style="color:var(--ms-muted)">بعد 3 أشهر</span>
+                  <strong class="ms-num-primary" style="font-size:15px">${fmt(in3)}</strong>
+                </div>
+                <div class="ms-compare-pill" style="flex-direction:column;align-items:flex-start;min-width:0">
+                  <span style="color:var(--ms-muted)">بعد 6 أشهر</span>
+                  <strong class="ms-num-primary" style="font-size:15px">${fmt(in6)}</strong>
+                </div>
+                <div class="ms-compare-pill" style="flex-direction:column;align-items:flex-start;min-width:0">
+                  <span style="color:var(--ms-muted)">بعد سنة كاملة</span>
+                  <strong class="ms-num-income" style="font-size:15px">${fmt(in12)}</strong>
+                </div>
+              </div>
+              ${monthsToGoal ? `<div style="font-size:12px;color:var(--ms-muted)">🚀 بهذه الوتيرة ستصل لهدف <strong>«${mainGoal.title}»</strong> خلال حوالي <strong>${monthsToGoal} ${monthsToGoal === 1 ? "شهر" : "أشهر"}</strong>!</div>` : ""}
             </section>`;
           })()}
 

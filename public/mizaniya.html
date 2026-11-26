@@ -1044,6 +1044,68 @@
       });
     };
 
+    window.startVoiceEntry = () => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        alert("التسجيل الصوتي غير مدعوم في هذا المتصفح. جرب متصفح Chrome على الهاتف.");
+        return;
+      }
+      openModal(`
+        <h3>🎙️ التسجيل بالصوت</h3>
+        <div id="voiceStatus" class="ms-subitems-wrap" style="text-align:center;padding:20px;font-size:14px">
+          🔴 جاري الاستماع... تكلّم الآن<br/>
+          <span style="font-size:12px;color:var(--ms-muted)">مثال: «بيض 600» أو «مدخول 3000» أو «حفاضات 1200»</span>
+        </div>
+        <div class="ms-modal-actions">
+          <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+        </div>
+      `);
+      const rec = new SR();
+      rec.lang = "ar-DZ";
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      rec.onresult = (event) => {
+        const raw = (event.results[0]?.[0]?.transcript || "").trim();
+        const normalized = raw.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
+        const numMatch = normalized.match(/\d+/);
+        const amount = numMatch ? Number(numMatch[0]) : "";
+        const isIncome = /(مدخول|أجرة|اجرة|دخل|ربح|خدمة|راتب)/.test(normalized);
+        const cleanedNote = normalized.replace(/\d+/g, "").replace(/(دج|دينار|شريت|اشتريت|دفعت|مدخول|أجرة|اجرة)/g, "").trim();
+
+        closeModal();
+        openTxModal(isIncome ? "income" : "expense");
+        setTimeout(() => {
+          const amtEl = document.getElementById("txAmount");
+          const noteEl = document.getElementById("txNote");
+          if (amtEl && amount) {
+            amtEl.value = String(amount);
+            amtEl.dispatchEvent(new Event("input"));
+          }
+          if (noteEl && cleanedNote) noteEl.value = cleanedNote;
+
+          if (!isIncome && cleanedNote) {
+            for (const [catId, list] of Object.entries(DEFAULT_CATEGORY_ITEMS)) {
+              const found = list.find(it => cleanedNote.includes(it.label) || it.label.includes(cleanedNote));
+              if (found) {
+                const catSel = document.getElementById("txCat");
+                if (catSel) {
+                  catSel.value = catId;
+                  selectedSubItem = found;
+                  renderSubItemsSection(catId);
+                }
+                break;
+              }
+            }
+          }
+        }, 50);
+      };
+      rec.onerror = () => {
+        const st = document.getElementById("voiceStatus");
+        if (st) st.innerHTML = "⚠️ لم أتمكن من سماع الصوت. تأكد من السماح للميكروفون وحاول مجدداً.";
+      };
+      rec.start();
+    };
+
     window.openGoalModal = (prefillTitle = "", prefillEmoji = "🎯") => {
       openModal(`
         <h3>إضافة هدف ادخار جديد</h3>
@@ -1285,6 +1347,37 @@
               }).join("")}
             </div>
           </section>
+
+          <!-- Smart Budget Advisor -->
+          ${(() => {
+            const byItem = {};
+            mTxs.filter(t => t.type === "expense").forEach(t => {
+              const key = (t.note || getCat(t.categoryId)?.label || "مصروف").trim();
+              byItem[key] = (byItem[key] || 0) + t.amount;
+            });
+            const top3 = Object.entries(byItem).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            if (top3.length === 0) return "";
+            const top3Sum = top3.reduce((s, x) => s + x[1], 0);
+            const yearlySave = Math.round(top3Sum * 0.2 * 12);
+            return `
+            <section class="ms-card" style="border-color:var(--ms-primary)">
+              <div class="ms-section-head" style="margin-bottom:8px">
+                <h2>🧠 مستشار الميزانية الذكي</h2>
+                <span class="ms-badge ms-badge-ok">توفير سنوي محتمل: ${fmt(yearlySave)}</span>
+              </div>
+              <div style="font-size:12px;color:var(--ms-muted);margin-bottom:8px">
+                أكثر 3 أشياء صرفت عليها هذا الشهر (لو خففت منها 20% فقط ستوفر <strong>${fmt(yearlySave)}</strong> في السنة):
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                ${top3.map(([name, val], idx) => `
+                  <div class="ms-compare-pill" style="min-width:140px">
+                    <span>${idx + 1}. ${name}</span>
+                    <strong class="ms-num-expense">${fmt(val)}</strong>
+                  </div>
+                `).join("")}
+              </div>
+            </section>`;
+          })()}
 
           <!-- Fixed Monthly Bills -->
           <section class="ms-card">
@@ -1553,6 +1646,7 @@
                 <button class="ms-action-btn ms-action-income" onclick="openTxModal('income')">+ مدخول</button>
                 <button class="ms-action-btn ms-action-transfer" onclick="openTxModal('transfer')">⇄ تحويل</button>
                 <button class="ms-action-btn ms-action-transfer" onclick="openCanIBuyModal()">🧮 هل أشتري؟</button>
+                <button class="ms-action-btn ms-action-transfer" onclick="startVoiceEntry()">🎙️ صوتي</button>
               </div>
             </div>
           </div>

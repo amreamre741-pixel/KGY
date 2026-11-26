@@ -480,7 +480,7 @@
     let activeTab = "dashboard";
     let monthKey = todayISO().slice(0, 7);
     let searchQuery = "";
-    let selectedSubItem = null;
+    let selectedSubItems = [];
 
     function save() {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
@@ -503,7 +503,7 @@
     const modalContent = document.getElementById("modalContent");
     backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
     function openModal(html) { modalContent.innerHTML = html; backdrop.classList.add("open"); }
-    function closeModal() { backdrop.classList.remove("open"); selectedSubItem = null; }
+    function closeModal() { backdrop.classList.remove("open"); selectedSubItems = []; }
 
     window.setTab = (t) => { activeTab = t; render(); };
     window.changeMonth = (d) => { monthKey = shiftMonth(monthKey, d); render(); };
@@ -559,14 +559,14 @@
       wrap.innerHTML = `
         <div class="ms-subitems-wrap">
           <div class="ms-subitems-head">
-            <span>اختر المادة (⭐ للتثبيت في الأعلى)</span>
+            <span>اختر مادة أو عدة مواد معاً 🛒 (⭐ للتثبيت)</span>
             <button type="button" class="ms-btn-outline ms-btn-sm" onclick="addCustomSubItem('${catId}')">+ مادة جديدة</button>
           </div>
           ${sorted.length === 0 ? `<div style="font-size:12px;color:var(--ms-muted);text-align:center;padding:8px">لا توجد مواد بعد — اضغط "+ مادة جديدة" لإضافة موادك</div>` : `
           <div class="ms-subitems-grid">
             ${sorted.map(item => {
               const isFav = favs.includes(item.id);
-              const isSel = selectedSubItem && selectedSubItem.id === item.id;
+              const isSel = selectedSubItems.some(s => s.id === item.id);
               return `
                 <div class="ms-subitem-card ${isFav ? "fav" : ""} ${isSel ? "selected" : ""}" onclick="pickSubItem('${catId}', '${item.id}')">
                   <button type="button" class="ms-star-btn ${isFav ? "active" : ""}" onclick="event.stopPropagation(); toggleFavItem('${catId}', '${item.id}')">${isFav ? "★" : "☆"}</button>
@@ -588,9 +588,9 @@
       if (!state.customItems) state.customItems = {};
       if (!state.customItems[catId]) state.customItems[catId] = [];
       state.customItems[catId].push(item);
-      selectedSubItem = item;
+      selectedSubItems.push(item);
       const noteInput = document.getElementById("txNote");
-      if (noteInput) noteInput.value = item.label;
+      if (noteInput) noteInput.value = selectedSubItems.map(s => s.label).join(" + ");
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
       renderSubItemsSection(catId);
     };
@@ -628,9 +628,14 @@
     window.pickSubItem = (catId, itemId) => {
       const item = getItemsForCategory(catId).find(i => i.id === itemId);
       if (!item) return;
-      selectedSubItem = item;
+      const exists = selectedSubItems.some(s => s.id === itemId);
+      if (exists) {
+        selectedSubItems = selectedSubItems.filter(s => s.id !== itemId);
+      } else {
+        selectedSubItems = [...selectedSubItems, item];
+      }
       const noteInput = document.getElementById("txNote");
-      if (noteInput) noteInput.value = item.label;
+      if (noteInput) noteInput.value = selectedSubItems.map(s => s.label).join(" + ");
       renderSubItemsSection(catId);
       updateLastPriceHint();
     };
@@ -644,7 +649,7 @@
 
     // --- Transactions ---
     window.openTxModal = (type) => {
-      selectedSubItem = null;
+      selectedSubItems = [];
       const title = type === "expense" ? "تسجيل مصروف جديد" : type === "income" ? "تسجيل مدخول جديد" : "تحويل بين المحافظ";
       const cats = type === "expense" ? EXP_CATS : INC_CATS;
       const wOpts = state.wallets.map(w => `<option value="${w.id}">${w.emoji} ${w.name}</option>`).join("");
@@ -691,7 +696,7 @@
       if (type === "expense") {
         const catSelect = document.getElementById("txCat");
         renderSubItemsSection(catSelect.value);
-        catSelect.addEventListener("change", () => { selectedSubItem = null; renderSubItemsSection(catSelect.value); });
+        catSelect.addEventListener("change", () => { selectedSubItems = []; renderSubItemsSection(catSelect.value); });
         document.getElementById("txAmount")?.addEventListener("input", updateLastPriceHint);
         document.getElementById("txNote")?.addEventListener("input", updateLastPriceHint);
       }
@@ -734,9 +739,10 @@
           }
           return w;
         });
+        const pickedEmoji = selectedSubItems.length === 1 ? selectedSubItems[0].emoji : selectedSubItems.length > 1 ? "🛒" : undefined;
         state.transactions.unshift({
           id: "tx_" + Date.now(), type, amount, categoryId,
-          itemEmoji: selectedSubItem ? selectedSubItem.emoji : undefined,
+          itemEmoji: pickedEmoji,
           walletId, toWalletId,
           note: note || (doAutoSave ? `أجرة اليوم (ادخار ${fmt(savedPart)})` : ""),
           date,
@@ -1161,7 +1167,7 @@
                 const catSel = document.getElementById("txCat");
                 if (catSel) {
                   catSel.value = catId;
-                  selectedSubItem = found;
+                  selectedSubItems = [found];
                   renderSubItemsSection(catId);
                 }
                 break;

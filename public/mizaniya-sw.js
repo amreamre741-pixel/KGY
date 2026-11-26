@@ -1,4 +1,4 @@
-const CACHE_NAME = "mizaniya-offline-v4";
+const CACHE_NAME = "mizaniya-offline-v5";
 const ASSETS = [
   "/masrouf",
   "/mizaniya.html",

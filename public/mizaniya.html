@@ -450,6 +450,12 @@
           { id: "fb_1", title: "تعبئة الإنترنت", emoji: "🌐", amount: 2000, categoryId: "bills", lastPaidMonth: "" },
           { id: "fb_2", title: "الكراء الشهري", emoji: "🏠", amount: 15000, categoryId: "rent", lastPaidMonth: "" },
         ],
+        quickSpends: [
+          { id: "qs_1", label: "خبز", emoji: "🥖", amount: 50, categoryId: "groceries" },
+          { id: "qs_2", label: "حليب", emoji: "🥛", amount: 100, categoryId: "groceries" },
+          { id: "qs_3", label: "قهوة", emoji: "☕", amount: 100, categoryId: "groceries" },
+          { id: "qs_4", label: "بيض", emoji: "🥚", amount: 300, categoryId: "groceries" },
+        ],
         currencyMode: "dzd",
         darkMode: false,
         autoSavePct: 20,
@@ -947,12 +953,103 @@
       }
     };
 
-    window.openGoalModal = () => {
+    window.runQuickSpend = (id) => {
+      const qs = (state.quickSpends || []).find(q => q.id === id);
+      if (!qs) return;
+      const wid = state.wallets[0]?.id;
+      if (!wid) return;
+      state.wallets = state.wallets.map(w => w.id === wid ? { ...w, balance: w.balance - qs.amount } : w);
+      state.transactions.unshift({
+        id: "tx_" + Date.now(), type: "expense", amount: qs.amount, categoryId: qs.categoryId || "groceries",
+        itemEmoji: qs.emoji, walletId: wid, note: qs.label, date: todayISO(),
+      });
+      save();
+    };
+
+    window.openAddQuickSpendModal = () => {
+      openModal(`
+        <h3>إضافة زر مصروف سريع ⚡</h3>
+        <form id="qsForm">
+          <div class="ms-field"><label>اسم المادة</label><input id="qsLabel" required class="ms-input" placeholder="مثال: خبز / حليب / طاكسي" /></div>
+          <div class="ms-field"><label>أيقونة</label><input id="qsEmoji" class="ms-input" value="⚡" /></div>
+          <div class="ms-field"><label>السعر الثابت (دج)</label><input id="qsAmt" type="number" min="1" required class="ms-input" placeholder="100" /></div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">إضافة الزر</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("qsForm").onsubmit = (e) => {
+        e.preventDefault();
+        if (!state.quickSpends) state.quickSpends = [];
+        state.quickSpends.push({
+          id: "qs_" + Date.now(),
+          label: document.getElementById("qsLabel").value.trim(),
+          emoji: document.getElementById("qsEmoji").value.trim() || "⚡",
+          amount: Number(document.getElementById("qsAmt").value),
+          categoryId: "groceries",
+        });
+        closeModal(); save();
+      };
+    };
+
+    window.deleteQuickSpend = (id) => {
+      state.quickSpends = (state.quickSpends || []).filter(q => q.id !== id);
+      save();
+    };
+
+    window.openCanIBuyModal = () => {
+      const mTxs = state.transactions.filter(t => t.date.startsWith(monthKey));
+      const mInc = mTxs.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+      const workDays = new Set(mTxs.filter(t => t.type === "income").map(t => t.date)).size;
+      const avgDay = workDays > 0 ? Math.round(mInc / workDays) : 2000;
+      const spendable = state.wallets.filter(w => w.id !== "w_box").reduce((s, w) => s + w.balance, 0);
+
+      openModal(`
+        <h3>🧮 حاسبة «هل أشتري هذا أم لا؟»</h3>
+        <div class="ms-field">
+          <label>سعر الغرض الذي تفكر في شرائه (دج)</label>
+          <input id="cibPrice" type="number" min="1" autofocus class="ms-input" placeholder="مثال: 15000" />
+        </div>
+        <div id="cibResult" class="ms-subitems-wrap" style="font-size:13px;line-height:1.6">
+          أدخل السعر لأحسب لك كم يوم عمل يساوي، وهل يناسب ميزانيتك الآن.
+        </div>
+        <div class="ms-modal-actions">
+          <button type="button" class="ms-btn" onclick="closeModal()">حسناً</button>
+        </div>
+      `);
+      const input = document.getElementById("cibPrice");
+      const res = document.getElementById("cibResult");
+      input.addEventListener("input", () => {
+        const price = Number(input.value) || 0;
+        if (price <= 0) {
+          res.textContent = "أدخل السعر لأحسب لك كم يوم عمل يساوي، وهل يناسب ميزانيتك الآن.";
+          return;
+        }
+        const daysEq = (price / avgDay).toFixed(1);
+        const afterBuy = spendable - price;
+        let verdict = "";
+        if (afterBuy < 0) {
+          verdict = `<span class="ms-badge ms-badge-danger">❌ رصيدك المتاح (بدون الشحيحة) لا يكفي حالياً</span>`;
+        } else if (afterBuy < avgDay * 2) {
+          verdict = `<span class="ms-badge ms-badge-warn">⚠️ سيبقى معك رصيد قليل جداً، يفضل تأجيله</span>`;
+        } else {
+          verdict = `<span class="ms-badge ms-badge-ok">✅ يمكنك شراؤه بأمان دون المساس بالشحيحة</span>`;
+        }
+        res.innerHTML = `
+          <div>👷 يعادل تقريباً: <strong>${daysEq} يوم عمل</strong> (حسب معدلك ${fmt(avgDay)}/يوم)</div>
+          <div>💵 رصيدك المتاح بعد الشراء: <strong>${fmt(afterBuy)}</strong></div>
+          <div style="margin-top:8px">${verdict}</div>
+        `;
+      });
+    };
+
+    window.openGoalModal = (prefillTitle = "", prefillEmoji = "🎯") => {
       openModal(`
         <h3>إضافة هدف ادخار جديد</h3>
         <form id="gForm">
-          <div class="ms-field"><label>اسم الهدف</label><input id="gTitle" required class="ms-input" placeholder="مثال: رأس مال التجارة" /></div>
-          <div class="ms-field"><label>أيقونة</label><input id="gEmoji" class="ms-input" value="🎯" /></div>
+          <div class="ms-field"><label>اسم الهدف</label><input id="gTitle" required class="ms-input" placeholder="مثال: رأس مال التجارة" value="${prefillTitle}" /></div>
+          <div class="ms-field"><label>أيقونة</label><input id="gEmoji" class="ms-input" value="${prefillEmoji}" /></div>
           <div class="ms-field"><label>المبلغ المستهدف (دج)</label><input id="gTarget" type="number" min="1" required class="ms-input" placeholder="100000" /></div>
           <div class="ms-field"><label>التاريخ المستهدف للشراء / الإنجاز (اختياري)</label><input id="gDue" type="date" class="ms-input" /></div>
           <div class="ms-modal-actions">
@@ -1068,9 +1165,34 @@
       const isThisMonth = today.startsWith(monthKey);
       const todayDayNum = isThisMonth ? Number(today.slice(8, 10)) : -1;
 
+      const d7Start = addDaysISO(-6);
+      const d14Start = addDaysISO(-13);
+      const w1Txs = state.transactions.filter(t => t.date >= d7Start && t.date <= today);
+      const w1Inc = w1Txs.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+      const w1Exp = w1Txs.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+      const w2Exp = state.transactions.filter(t => t.date >= d14Start && t.date < d7Start && t.type === "expense").reduce((s, t) => s + t.amount, 0);
+
       let mainHtml = "";
       if (activeTab === "dashboard") {
         mainHtml = `
+          <!-- Quick 1-Tap Spends -->
+          <section class="ms-card" style="padding:12px 14px">
+            <div class="ms-section-head" style="margin-bottom:8px">
+              <h2 style="font-size:14px">⚡ مصاريف سريعة (ضغطة واحدة)</h2>
+              <button class="ms-btn-outline ms-btn-sm" onclick="openAddQuickSpendModal()">+ زر سريع</button>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              ${(state.quickSpends || []).map(qs => `
+                <div style="display:inline-flex;align-items:center;background:var(--ms-surface-2);border:1px solid var(--ms-border);border-radius:10px;overflow:hidden">
+                  <button class="ms-btn-outline ms-btn-sm" style="border:none;border-radius:0;background:transparent" onclick="runQuickSpend('${qs.id}')">
+                    ${qs.emoji} ${qs.label} · <strong>${fmt(qs.amount)}</strong>
+                  </button>
+                  <button class="ms-icon-btn" style="padding:4px 6px" onclick="deleteQuickSpend('${qs.id}')" title="حذف">✕</button>
+                </div>
+              `).join("")}
+            </div>
+          </section>
+
           <div class="ms-daily-tip">
             <div>
               <div style="font-size:13px;font-weight:700;color:var(--ms-primary)">👷 ملخص العامل اليومي (اليوم)</div>
@@ -1089,18 +1211,18 @@
             </div>
           </div>
 
-          <!-- Month vs Previous Month Comparison -->
+          <!-- Weekly Summary (Last 7 Days) -->
           <div class="ms-compare-row">
             <div class="ms-compare-pill">
-              <span>📈 مقارنة المداخيل بالشهر الماضي</span>
-              <span class="ms-badge ${incDiff >= 0 ? "ms-badge-ok" : "ms-badge-danger"}">
-                ${incDiff >= 0 ? "+" : "−"}${fmt(Math.abs(incDiff))}
+              <span>📆 آخر 7 أيام (الأسبوع)</span>
+              <span>
+                <strong class="ms-num-income">+${fmt(w1Inc)}</strong> / <strong class="ms-num-expense">−${fmt(w1Exp)}</strong>
               </span>
             </div>
             <div class="ms-compare-pill">
-              <span>📉 مقارنة المصاريف بالشهر الماضي</span>
+              <span>📈 مقارنة بالشهر الماضي</span>
               <span class="ms-badge ${expDiff <= 0 ? "ms-badge-ok" : "ms-badge-danger"}">
-                ${expDiff <= 0 ? `أقل بـ ${fmt(Math.abs(expDiff))} 👏` : `أكثر بـ ${fmt(expDiff)}`}
+                ${expDiff <= 0 ? `وفّرت ${fmt(Math.abs(expDiff))} 👏` : `مصاريف +${fmt(expDiff)}`}
               </span>
             </div>
           </div>
@@ -1317,6 +1439,15 @@
               <h2>🎯 أهداف الادخار</h2>
               <button class="ms-btn" onclick="openGoalModal()">+ هدف جديد</button>
             </div>
+            <div class="ms-card" style="margin-bottom:14px;padding:12px 14px">
+              <div style="font-size:12px;font-weight:700;color:var(--ms-muted);margin-bottom:8px">🌙 صندوق المواسم (إضافة سريعة لهدف موسمي):</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="ms-btn-outline ms-btn-sm" onclick="openGoalModal('صندوق رمضان', '🌙')">🌙 رمضان</button>
+                <button class="ms-btn-outline ms-btn-sm" onclick="openGoalModal('صندوق العيد', '🐑')">🐑 العيد</button>
+                <button class="ms-btn-outline ms-btn-sm" onclick="openGoalModal('الدخول المدرسي', '🎒')">🎒 الدخول المدرسي</button>
+                <button class="ms-btn-outline ms-btn-sm" onclick="openGoalModal('صندوق الصدقة', '🤲')">🤲 الصدقة</button>
+              </div>
+            </div>
             ${state.goals.length === 0 ? `<div class="ms-card ms-empty">لا توجد أهداف ادخار حالياً.</div>` : `
               <div class="ms-grid-2">
                 ${state.goals.map(g => {
@@ -1421,6 +1552,7 @@
                 <button class="ms-action-btn ms-action-expense" onclick="openTxModal('expense')">− مصروف</button>
                 <button class="ms-action-btn ms-action-income" onclick="openTxModal('income')">+ مدخول</button>
                 <button class="ms-action-btn ms-action-transfer" onclick="openTxModal('transfer')">⇄ تحويل</button>
+                <button class="ms-action-btn ms-action-transfer" onclick="openCanIBuyModal()">🧮 هل أشتري؟</button>
               </div>
             </div>
           </div>

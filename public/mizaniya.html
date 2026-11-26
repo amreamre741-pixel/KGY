@@ -558,6 +558,36 @@
       renderSubItemsSection(catId);
     };
 
+    function updateLastPriceHint() {
+      const box = document.getElementById("lastPriceHint");
+      const noteEl = document.getElementById("txNote");
+      const amtEl = document.getElementById("txAmount");
+      if (!box || !noteEl) return;
+      const key = noteEl.value.trim().toLowerCase();
+      if (!key) {
+        box.style.display = "none";
+        return;
+      }
+      const prev = state.transactions.find(t => t.type === "expense" && (t.note || "").trim().toLowerCase() === key);
+      if (!prev) {
+        box.style.display = "none";
+        return;
+      }
+      const curAmt = Number(amtEl?.value) || 0;
+      let diffHtml = "";
+      if (curAmt > 0 && curAmt !== prev.amount) {
+        const diff = curAmt - prev.amount;
+        diffHtml = diff > 0
+          ? ` <span class="ms-badge ms-badge-danger">📈 +${fmt(diff)}</span>`
+          : ` <span class="ms-badge ms-badge-ok">📉 أقل بـ ${fmt(Math.abs(diff))}</span>`;
+      }
+      box.style.display = "flex";
+      box.innerHTML = `
+        <span>🏷️ آخر سعر لـ <strong>${prev.note}</strong>: <strong>${fmt(prev.amount)}</strong> (${prev.date})${diffHtml}</span>
+        <button type="button" class="ms-btn-outline ms-btn-sm" onclick="const a=document.getElementById('txAmount');if(a){a.value='${prev.amount}';a.dispatchEvent(new Event('input'));}">نفس السعر</button>
+      `;
+    }
+
     window.pickSubItem = (catId, itemId) => {
       const item = getItemsForCategory(catId).find(i => i.id === itemId);
       if (!item) return;
@@ -565,6 +595,7 @@
       const noteInput = document.getElementById("txNote");
       if (noteInput) noteInput.value = item.label;
       renderSubItemsSection(catId);
+      updateLastPriceHint();
     };
 
     window.toggleFavItem = (catId, itemId) => {
@@ -590,6 +621,7 @@
             <label>المبلغ (دج)</label>
             <input type="number" id="txAmount" min="1" required autofocus class="ms-input" placeholder="${type === "income" ? "مثال: 2000 أو 3000" : "مثال: 600"}" />
           </div>
+          ${type === "expense" ? `<div id="lastPriceHint" class="ms-subitems-wrap" style="display:none;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px"></div>` : ""}
           ${type === "income" && pct > 0 && boxWallet ? `
           <div class="ms-subitems-wrap" style="margin-bottom:12px">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
@@ -623,6 +655,8 @@
         const catSelect = document.getElementById("txCat");
         renderSubItemsSection(catSelect.value);
         catSelect.addEventListener("change", () => { selectedSubItem = null; renderSubItemsSection(catSelect.value); });
+        document.getElementById("txAmount")?.addEventListener("input", updateLastPriceHint);
+        document.getElementById("txNote")?.addEventListener("input", updateLastPriceHint);
       }
       if (type === "income" && pct > 0 && boxWallet) {
         const amtEl = document.getElementById("txAmount");

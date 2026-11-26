@@ -169,9 +169,28 @@ export default async function CustomersPage({ searchParams }: { searchParams: SP
                       </td>
                       <td className="end" data-label={t.customers.balance}>
                         {bal > 0 ? (
-                          <span className="badge badge-low num" style={{ fontSize: "0.86rem" }}>
-                            {formatDA(bal, lang)}
-                          </span>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                            <span className="badge badge-low num" style={{ fontSize: "0.86rem" }}>
+                              {formatDA(bal, lang)}
+                            </span>
+                            {(() => {
+                              const digits = (c.phone || "").replace(/\D/g, "");
+                              const intlPhone = digits.startsWith("0") ? `213${digits.slice(1)}` : digits;
+                              const msg = `السلام عليكم أخي ${c.name}، نذكركم بلطف بالرصيد المتبقي لديكم لدى محل KGY لقطع الغيار بقيمة ${formatDA(bal, lang)}. شكراً لتعاملكم معنا.`;
+                              const waUrl = `https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`;
+                              return (
+                                <a
+                                  href={waUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-sm btn-secondary"
+                                  title="إرسال تذكير بالكريدي عبر واتساب"
+                                >
+                                  📲 واتساب
+                                </a>
+                              );
+                            })()}
+                          </div>
                         ) : (
                           <span className="badge badge-ok">{t.customers.clean}</span>
                         )}

@@ -1,0 +1,1278 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ميزانية — تسيير المال والادخار المنزلي</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f4f6f9;
+      color: #0f172a;
+      font-family: system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+      padding-bottom: 84px;
+      --ms-bg: #f4f6f9;
+      --ms-surface: #ffffff;
+      --ms-surface-2: #f8fafc;
+      --ms-border: #e2e8f0;
+      --ms-text: #0f172a;
+      --ms-muted: #64748b;
+      --ms-primary: #0f766e;
+      --ms-primary-dark: #115e59;
+      --ms-primary-soft: #ccfbf1;
+      --ms-income: #15803d;
+      --ms-income-soft: #dcfce7;
+      --ms-expense: #be123c;
+      --ms-expense-soft: #ffe4e6;
+      --ms-warn: #b45309;
+      --ms-warn-soft: #fef3c7;
+      --ms-radius: 16px;
+      --ms-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+    }
+    body.dark {
+      background: #0b1120;
+      color: #f1f5f9;
+      --ms-bg: #0b1120;
+      --ms-surface: #111827;
+      --ms-surface-2: #1e293b;
+      --ms-border: #334155;
+      --ms-text: #f1f5f9;
+      --ms-muted: #94a3b8;
+      --ms-primary: #14b8a6;
+      --ms-primary-dark: #0d9488;
+      --ms-primary-soft: rgba(20, 184, 166, 0.16);
+      --ms-income: #4ade80;
+      --ms-income-soft: rgba(74, 222, 128, 0.16);
+      --ms-expense: #fb7185;
+      --ms-expense-soft: rgba(251, 113, 133, 0.16);
+      --ms-warn: #fbbf24;
+      --ms-warn-soft: rgba(251, 191, 36, 0.16);
+    }
+    body.dark .ms-tx-emoji,
+    body.dark .ms-subitem-card,
+    body.dark .ms-btn-outline,
+    body.dark .ms-input,
+    body.dark .ms-select,
+    body.dark .ms-modal,
+    body.dark .ms-bottom-nav {
+      background: var(--ms-surface);
+      color: var(--ms-text);
+      border-color: var(--ms-border);
+    }
+    body.dark .ms-subitem-card.fav {
+      background: rgba(251, 191, 36, 0.12);
+      border-color: #d97706;
+    }
+    body.dark .ms-bar-track { background: #334155; }
+    .ms-daily-tip {
+      background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(15, 42, 68, 0.08));
+      border: 1px solid var(--ms-primary);
+      border-radius: var(--ms-radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .ms-header {
+      background: linear-gradient(135deg, #0f2a44 0%, #0f766e 100%);
+      color: #ffffff;
+      padding: 18px 16px 22px;
+      border-bottom-left-radius: 24px;
+      border-bottom-right-radius: 24px;
+      box-shadow: 0 6px 20px rgba(15, 42, 68, 0.18);
+    }
+    .ms-container { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+    .ms-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .ms-brand { display: flex; align-items: center; gap: 10px; }
+    .ms-brand-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: rgba(255,255,255,0.16);
+      display: flex; align-items: center; justify-content: center; font-size: 20px;
+    }
+    .ms-brand h1 { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.2; }
+    .ms-brand p { margin: 2px 0 0; font-size: 12px; opacity: 0.85; }
+    .ms-top-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ms-pill-btn {
+      background: rgba(255,255,255,0.14); color: #fff;
+      border: 1px solid rgba(255,255,255,0.22); border-radius: 999px;
+      padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .ms-pill-btn:hover { background: rgba(255,255,255,0.24); }
+    .ms-month-picker {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 999px; padding: 4px 8px; font-size: 13px; font-weight: 600;
+    }
+    .ms-month-picker button {
+      background: transparent; border: none; color: #fff; cursor: pointer;
+      padding: 2px 6px; font-size: 14px; border-radius: 999px;
+    }
+    .ms-balance-hero {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap;
+    }
+    .ms-balance-label { font-size: 13px; opacity: 0.85; margin-bottom: 4px; }
+    .ms-balance-value { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.1; }
+    .ms-quick-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .ms-action-btn {
+      border: none; border-radius: 12px; padding: 10px 14px; font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .ms-action-expense { background: #ffe4e6; color: #9f1239; }
+    .ms-action-income { background: #dcfce7; color: #166534; }
+    .ms-action-transfer { background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.25); }
+    .ms-desktop-tabs { display: none; gap: 8px; margin: 16px 0 0; flex-wrap: wrap; }
+    @media (min-width: 720px) {
+      .ms-desktop-tabs { display: flex; }
+      body { padding-bottom: 32px; }
+    }
+    .ms-tab-btn {
+      background: var(--ms-surface); border: 1px solid var(--ms-border); color: var(--ms-muted);
+      padding: 9px 14px; border-radius: 12px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+    .ms-tab-btn.active { background: var(--ms-primary); color: #fff; border-color: var(--ms-primary); }
+    .ms-main { margin-top: 16px; display: flex; flex-direction: column; gap: 16px; }
+    .ms-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 640px) { .ms-kpi-grid { grid-template-columns: 1fr; } }
+    .ms-card {
+      background: var(--ms-surface); border: 1px solid var(--ms-border);
+      border-radius: var(--ms-radius); padding: 16px; box-shadow: var(--ms-shadow);
+    }
+    .ms-kpi-title {
+      font-size: 12px; color: var(--ms-muted); margin-bottom: 6px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ms-kpi-num { font-size: 20px; font-weight: 700; }
+    .ms-num-income { color: var(--ms-income); }
+    .ms-num-expense { color: var(--ms-expense); }
+    .ms-num-primary { color: var(--ms-primary); }
+    .ms-section-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .ms-section-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+    .ms-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 768px) { .ms-grid-2 { grid-template-columns: 1fr; } }
+    .ms-list { display: flex; flex-direction: column; gap: 10px; }
+    .ms-tx-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 12px; border-radius: 12px; background: var(--ms-surface-2);
+      border: 1px solid var(--ms-border);
+    }
+    .ms-tx-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .ms-tx-emoji {
+      width: 38px; height: 38px; border-radius: 10px; background: #fff;
+      border: 1px solid var(--ms-border); display: flex; align-items: center;
+      justify-content: center; font-size: 18px; flex-shrink: 0;
+    }
+    .ms-tx-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ms-tx-meta { font-size: 12px; color: var(--ms-muted); }
+    .ms-tx-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .ms-tx-amount { font-size: 14px; font-weight: 700; }
+    .ms-icon-btn {
+      background: transparent; border: none; color: var(--ms-muted);
+      border-radius: 8px; padding: 4px 7px; cursor: pointer; font-size: 13px;
+    }
+    .ms-icon-btn:hover { background: #fee2e2; color: #b91c1c; }
+    .ms-bar-row { display: flex; flex-direction: column; gap: 6px; }
+    .ms-bar-head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
+    .ms-bar-track { width: 100%; height: 10px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .ms-bar-fill { height: 100%; border-radius: 999px; transition: width 0.25s ease; }
+    .ms-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .ms-badge-ok { background: var(--ms-income-soft); color: var(--ms-income); }
+    .ms-badge-warn { background: var(--ms-warn-soft); color: var(--ms-warn); }
+    .ms-badge-danger { background: var(--ms-expense-soft); color: var(--ms-expense); }
+    .ms-btn {
+      background: var(--ms-primary); color: #fff; border: none; border-radius: 10px;
+      padding: 8px 13px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .ms-btn:hover { background: var(--ms-primary-dark); }
+    .ms-btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+    .ms-btn-outline {
+      background: #fff; color: var(--ms-text); border: 1px solid var(--ms-border);
+      border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+    .ms-wallet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .ms-wallet-card {
+      background: var(--ms-surface); border: 1px solid var(--ms-border);
+      border-radius: var(--ms-radius); padding: 16px; display: flex;
+      flex-direction: column; gap: 10px; box-shadow: var(--ms-shadow);
+    }
+    .ms-bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
+      border-top: 1px solid var(--ms-border); display: grid; grid-template-columns: repeat(5, 1fr);
+      padding: 6px 4px; z-index: 50;
+    }
+    @media (min-width: 720px) { .ms-bottom-nav { display: none; } }
+    .ms-bottom-nav button {
+      background: transparent; border: none; display: flex; flex-direction: column;
+      align-items: center; gap: 2px; font-size: 11px; font-weight: 600;
+      color: var(--ms-muted); cursor: pointer; padding: 4px 2px; border-radius: 10px; font-family: inherit;
+    }
+    .ms-bottom-nav button.active { color: var(--ms-primary); background: var(--ms-primary-soft); }
+    .ms-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
+      display: none; align-items: center; justify-content: center; padding: 16px; z-index: 60;
+    }
+    .ms-modal-backdrop.open { display: flex; }
+    .ms-modal {
+      background: #fff; border-radius: 20px; width: 100%; max-width: 480px;
+      padding: 20px; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      max-height: 90vh; overflow-y: auto;
+    }
+    .ms-modal h3 { margin: 0 0 14px; font-size: 18px; }
+    .ms-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .ms-field label { font-size: 13px; font-weight: 600; }
+    .ms-input, .ms-select {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--ms-border);
+      border-radius: 10px; font-size: 14px; font-family: inherit; background: #fff; color: var(--ms-text);
+    }
+    .ms-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .ms-empty { text-align: center; padding: 24px 16px; color: var(--ms-muted); font-size: 14px; }
+
+    /* Sub-items picker */
+    .ms-subitems-wrap {
+      background: var(--ms-surface-2); border: 1px solid var(--ms-border);
+      border-radius: 12px; padding: 10px; margin-bottom: 12px;
+    }
+    .ms-subitems-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      margin-bottom: 8px; font-size: 12px; color: var(--ms-muted); font-weight: 600; flex-wrap: wrap;
+    }
+    .ms-subitems-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+      gap: 8px; max-height: 190px; overflow-y: auto; padding: 2px;
+    }
+    .ms-subitem-card {
+      position: relative; background: #fff; border: 1.5px solid var(--ms-border);
+      border-radius: 12px; padding: 10px 6px 8px; display: flex; flex-direction: column;
+      align-items: center; gap: 4px; cursor: pointer; transition: all 0.14s; user-select: none;
+    }
+    .ms-subitem-card:hover { border-color: var(--ms-primary); }
+    .ms-subitem-card.fav { background: #fffbeb; border-color: #fcd34d; }
+    .ms-subitem-card.selected {
+      background: var(--ms-primary-soft); border-color: var(--ms-primary);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.18);
+    }
+    .ms-subitem-emoji { font-size: 24px; line-height: 1; }
+    .ms-subitem-name { font-size: 12px; font-weight: 600; text-align: center; color: var(--ms-text); }
+    .ms-star-btn {
+      position: absolute; top: 3px; left: 3px; background: transparent; border: none;
+      cursor: pointer; font-size: 14px; line-height: 1; padding: 2px; color: #cbd5e1;
+    }
+    .ms-star-btn.active { color: #f59e0b; }
+
+    /* Search & chips */
+    .ms-search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .ms-fixed-grid { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+    .ms-fixed-chip {
+      min-width: 170px; background: var(--ms-surface-2); border: 1px solid var(--ms-border);
+      border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+    }
+    .ms-done { text-decoration: line-through; opacity: 0.55; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="modalBackdrop" class="ms-modal-backdrop">
+    <div id="modalContent" class="ms-modal"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "masrouf_preview_dz_v3";
+    const CATEGORIES = [
+      { id: "groceries", label: "قفة الدار وأكل", emoji: "🛒", color: "#0f766e", kind: "expense" },
+      { id: "kids", label: "مصاريف الأطفال", emoji: "👶", color: "#ec4899", kind: "expense" },
+      { id: "bills", label: "فواتير (كهرباء/ماء/إنترنت)", emoji: "⚡", color: "#0284c7", kind: "expense" },
+      { id: "transport", label: "نقل وبنزين", emoji: "🚗", color: "#d97706", kind: "expense" },
+      { id: "rent", label: "كراء ومصاريف المنزل", emoji: "🏠", color: "#7c3aed", kind: "expense" },
+      { id: "health", label: "صحة ودواء", emoji: "💊", color: "#dc2626", kind: "expense" },
+      { id: "clothes", label: "ملابس وعناية", emoji: "👕", color: "#db2777", kind: "expense" },
+      { id: "emergency", label: "مصاريف طارئة", emoji: "🆘", color: "#ea580c", kind: "expense" },
+      { id: "other_exp", label: "مصاريف أخرى", emoji: "📦", color: "#475569", kind: "expense" },
+      { id: "salary", label: "أجرة يومية / عمل يومي", emoji: "👷", color: "#15803d", kind: "income" },
+      { id: "freelance", label: "عمل إضافي / تجارة", emoji: "💻", color: "#059669", kind: "income" },
+      { id: "other_inc", label: "مدخول آخر", emoji: "🎁", color: "#16a34a", kind: "income" },
+    ];
+
+    const DEFAULT_CATEGORY_ITEMS = {
+      groceries: [
+        { id: "eggs", label: "بيض", emoji: "🥚" },
+        { id: "sugar", label: "سكر", emoji: "🍚" },
+        { id: "meat", label: "لحم", emoji: "🥩" },
+        { id: "chicken", label: "دجاج", emoji: "🍗" },
+        { id: "potato", label: "بطاطا", emoji: "🥔" },
+        { id: "tomato", label: "طماطم", emoji: "🍅" },
+        { id: "onion", label: "بصلة", emoji: "🧅" },
+        { id: "bread", label: "خبز", emoji: "🥖" },
+        { id: "milk", label: "حليب", emoji: "🥛" },
+        { id: "oil", label: "زيت", emoji: "🫒" },
+        { id: "coffee", label: "قهوة", emoji: "☕" },
+        { id: "cheese", label: "فرماج", emoji: "🧀" },
+        { id: "pasta", label: "عجائن", emoji: "🍝" },
+        { id: "fruits", label: "فواكه", emoji: "🍎" },
+        { id: "veggies", label: "خضر أخرى", emoji: "🥬" },
+        { id: "water", label: "ماء معدني", emoji: "💧" },
+      ],
+      kids: [
+        { id: "k_milk", label: "حليب أطفال", emoji: "🍼" },
+        { id: "k_diapers", label: "حفاضات (لي كوش)", emoji: "🧷" },
+        { id: "k_wipes", label: "مناديل مبللة", emoji: "🧻" },
+        { id: "k_meds", label: "دواء / طبيب", emoji: "💊" },
+        { id: "k_clothes", label: "ملابس أطفال", emoji: "👕" },
+        { id: "k_school", label: "مدرسة وأدوات", emoji: "🎒" },
+        { id: "k_snacks", label: "سناك / ياغورت", emoji: "🍪" },
+        { id: "k_toys", label: "ألعاب", emoji: "🧸" },
+        { id: "k_care", label: "شامبو وعناية", emoji: "🧴" },
+      ],
+      bills: [
+        { id: "elec", label: "كهرباء", emoji: "⚡" },
+        { id: "gas", label: "غاز", emoji: "🔥" },
+        { id: "water_bill", label: "ماء", emoji: "🚰" },
+        { id: "internet", label: "إنترنت", emoji: "🌐" },
+        { id: "flexy", label: "فليكسي", emoji: "📱" },
+      ],
+      transport: [
+        { id: "fuel", label: "بنزين/مازوت", emoji: "⛽" },
+        { id: "taxi", label: "طاكسي/نقل", emoji: "🚕" },
+        { id: "repair", label: "صيانة", emoji: "🔧" },
+      ],
+    };
+
+    const EXP_CATS = CATEGORIES.filter(c => c.kind === "expense");
+    const INC_CATS = CATEGORIES.filter(c => c.kind === "income");
+
+    function todayISO() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+    function shiftMonth(mk, delta) {
+      const [y, m] = mk.split("-").map(Number);
+      const d = new Date(y, m - 1 + delta, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+    function formatMonthAr(mk) {
+      const [y, m] = mk.split("-").map(Number);
+      return new Intl.DateTimeFormat("ar-DZ", { month: "long", year: "numeric" }).format(new Date(y, m - 1, 1));
+    }
+
+    function daysUntil(dateStr) {
+      if (!dateStr) return null;
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const [y, m, d] = dateStr.split("-").map(Number);
+      const target = new Date(y, m - 1, d);
+      return Math.ceil((target - todayStart) / (1000 * 60 * 60 * 24));
+    }
+
+    function addDaysISO(days) {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    function defaultState() {
+      const t = todayISO();
+      return {
+        wallets: [
+          { id: "w_cash", name: "كاش (المنزل / الجيب)", emoji: "💵", balance: 18500 },
+          { id: "w_ccp", name: "CCP / بريدي موب", emoji: "💳", balance: 45000 },
+          { id: "w_box", name: "حصالة الادخار (شحيحة)", emoji: "🏦", balance: 30000 },
+        ],
+        transactions: [
+          { id: "tx_1", type: "income", amount: 3000, categoryId: "salary", walletId: "w_cash", note: "أجرة اليوم", date: t },
+          { id: "tx_2", type: "expense", amount: 600, categoryId: "groceries", itemEmoji: "🥚", walletId: "w_cash", note: "بيض", date: t },
+          { id: "tx_3", type: "expense", amount: 2000, categoryId: "bills", itemEmoji: "🌐", walletId: "w_ccp", note: "إنترنت", date: t },
+        ],
+        goals: [
+          { id: "g_ecom", title: "رأس مال التجارة الإلكترونية", emoji: "🚀", target: 100000, saved: 30000, dueDate: addDaysISO(60) },
+          { id: "g_emerg", title: "صندوق الطوارئ المنزلي", emoji: "🛡️", target: 50000, saved: 12000, dueDate: "" },
+        ],
+        budgets: { groceries: 20000, bills: 6000, transport: 5000, rent: 15000 },
+        favoriteItems: ["eggs", "bread", "milk", "potato"],
+        customItems: {}, // catId -> [{id, label, emoji}]
+        shoppingList: [
+          { id: "sh_1", name: "بيض", emoji: "🥚", done: false },
+          { id: "sh_2", name: "بطاطا 2 كغ", emoji: "🥔", done: false },
+          { id: "sh_3", name: "حليب", emoji: "🥛", done: false },
+        ],
+        debts: [
+          { id: "d_1", person: "أحمد", type: "lent", amount: 5000, note: "سلف قديم", paid: false, dueDate: "" },
+          { id: "d_2", person: "محل الحي", type: "borrowed", amount: 3000, note: "كريدي قفة", paid: false, dueDate: addDaysISO(10) },
+        ],
+        fixedBills: [
+          { id: "fb_1", title: "تعبئة الإنترنت", emoji: "🌐", amount: 2000, categoryId: "bills", lastPaidMonth: "" },
+          { id: "fb_2", title: "الكراء الشهري", emoji: "🏠", amount: 15000, categoryId: "rent", lastPaidMonth: "" },
+        ],
+        currencyMode: "dzd",
+        darkMode: false,
+        autoSavePct: 20,
+      };
+    }
+
+    function getRemainingDaysInMonth(mk) {
+      const [y, m] = mk.split("-").map(Number);
+      const totalDays = new Date(y, m, 0).getDate();
+      const now = new Date();
+      const isCurrentMonth = now.getFullYear() === y && (now.getMonth() + 1) === m;
+      if (isCurrentMonth) return Math.max(1, totalDays - now.getDate() + 1);
+      return totalDays;
+    }
+
+    let state = defaultState();
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) state = { ...defaultState(), ...JSON.parse(saved) };
+    } catch {}
+
+    let activeTab = "dashboard";
+    let monthKey = todayISO().slice(0, 7);
+    let searchQuery = "";
+    let selectedSubItem = null;
+
+    function save() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+      render();
+    }
+
+    function fmt(amount) {
+      if (state.currencyMode === "centime") return `${Math.round(amount * 100).toLocaleString("fr-DZ")} سنتيم`;
+      return `${Math.round(amount).toLocaleString("fr-DZ")} دج`;
+    }
+
+    function getCat(id) { return CATEGORIES.find(c => c.id === id); }
+    function getWallet(id) { return state.wallets.find(w => w.id === id); }
+    function getItemsForCategory(catId) {
+      return [...(DEFAULT_CATEGORY_ITEMS[catId] || []), ...((state.customItems && state.customItems[catId]) || [])];
+    }
+
+    const backdrop = document.getElementById("modalBackdrop");
+    const modalContent = document.getElementById("modalContent");
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) closeModal(); });
+    function openModal(html) { modalContent.innerHTML = html; backdrop.classList.add("open"); }
+    function closeModal() { backdrop.classList.remove("open"); selectedSubItem = null; }
+
+    window.setTab = (t) => { activeTab = t; render(); };
+    window.changeMonth = (d) => { monthKey = shiftMonth(monthKey, d); render(); };
+    window.toggleCurrency = () => { state.currencyMode = state.currencyMode === "dzd" ? "centime" : "dzd"; save(); };
+    window.toggleDarkMode = () => { state.darkMode = !state.darkMode; save(); };
+    window.setAutoSavePct = (v) => { state.autoSavePct = Math.max(0, Math.min(80, Number(v) || 0)); save(); };
+    window.updateSearch = (val) => { searchQuery = val; render(); const el = document.getElementById("txSearchInput"); if (el) { el.focus(); el.setSelectionRange(val.length, val.length); } };
+
+    // --- Sub-items + Custom items + Favorites ---
+    function renderSubItemsSection(catId) {
+      const wrap = document.getElementById("subItemsContainer");
+      if (!wrap) return;
+      const items = getItemsForCategory(catId);
+      const favs = state.favoriteItems || [];
+      const sorted = [...items].sort((a, b) => (favs.includes(b.id) ? 1 : 0) - (favs.includes(a.id) ? 1 : 0));
+
+      wrap.innerHTML = `
+        <div class="ms-subitems-wrap">
+          <div class="ms-subitems-head">
+            <span>اختر المادة (⭐ للتثبيت في الأعلى)</span>
+            <button type="button" class="ms-btn-outline ms-btn-sm" onclick="addCustomSubItem('${catId}')">+ مادة جديدة</button>
+          </div>
+          ${sorted.length === 0 ? `<div style="font-size:12px;color:var(--ms-muted);text-align:center;padding:8px">لا توجد مواد بعد — اضغط "+ مادة جديدة" لإضافة موادك</div>` : `
+          <div class="ms-subitems-grid">
+            ${sorted.map(item => {
+              const isFav = favs.includes(item.id);
+              const isSel = selectedSubItem && selectedSubItem.id === item.id;
+              return `
+                <div class="ms-subitem-card ${isFav ? "fav" : ""} ${isSel ? "selected" : ""}" onclick="pickSubItem('${catId}', '${item.id}')">
+                  <button type="button" class="ms-star-btn ${isFav ? "active" : ""}" onclick="event.stopPropagation(); toggleFavItem('${catId}', '${item.id}')">${isFav ? "★" : "☆"}</button>
+                  <div class="ms-subitem-emoji">${item.emoji}</div>
+                  <div class="ms-subitem-name">${item.label}</div>
+                </div>
+              `;
+            }).join("")}
+          </div>`}
+        </div>
+      `;
+    }
+
+    window.addCustomSubItem = (catId) => {
+      const label = prompt("اكتب اسم المادة الجديدة (مثلاً: ياغورت، دلاح، قهوة...):");
+      if (!label || !label.trim()) return;
+      const emoji = prompt("اختر رمزاً أو إيموجي للمادة (اختياري):", "🛍️") || "🛍️";
+      const item = { id: "ci_" + Date.now(), label: label.trim(), emoji: emoji.trim() || "🛍️" };
+      if (!state.customItems) state.customItems = {};
+      if (!state.customItems[catId]) state.customItems[catId] = [];
+      state.customItems[catId].push(item);
+      selectedSubItem = item;
+      const noteInput = document.getElementById("txNote");
+      if (noteInput) noteInput.value = item.label;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+      renderSubItemsSection(catId);
+    };
+
+    window.pickSubItem = (catId, itemId) => {
+      const item = getItemsForCategory(catId).find(i => i.id === itemId);
+      if (!item) return;
+      selectedSubItem = item;
+      const noteInput = document.getElementById("txNote");
+      if (noteInput) noteInput.value = item.label;
+      renderSubItemsSection(catId);
+    };
+
+    window.toggleFavItem = (catId, itemId) => {
+      const favs = state.favoriteItems || [];
+      state.favoriteItems = favs.includes(itemId) ? favs.filter(id => id !== itemId) : [...favs, itemId];
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+      renderSubItemsSection(catId);
+    };
+
+    // --- Transactions ---
+    window.openTxModal = (type) => {
+      selectedSubItem = null;
+      const title = type === "expense" ? "تسجيل مصروف جديد" : type === "income" ? "تسجيل مدخول جديد" : "تحويل بين المحافظ";
+      const cats = type === "expense" ? EXP_CATS : INC_CATS;
+      const wOpts = state.wallets.map(w => `<option value="${w.id}">${w.emoji} ${w.name}</option>`).join("");
+      const wOpts2 = state.wallets.map((w, i) => `<option value="${w.id}" ${i === 1 ? "selected" : ""}>${w.emoji} ${w.name}</option>`).join("");
+      const pct = state.autoSavePct || 0;
+      const boxWallet = state.wallets.find(w => w.id === "w_box") || state.wallets[state.wallets.length - 1];
+      openModal(`
+        <h3>${title}</h3>
+        <form id="txForm">
+          <div class="ms-field">
+            <label>المبلغ (دج)</label>
+            <input type="number" id="txAmount" min="1" required autofocus class="ms-input" placeholder="${type === "income" ? "مثال: 2000 أو 3000" : "مثال: 600"}" />
+          </div>
+          ${type === "income" && pct > 0 && boxWallet ? `
+          <div class="ms-subitems-wrap" style="margin-bottom:12px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+              <input type="checkbox" id="txAutoSave" checked />
+              <span>🏦 ادخار تلقائي (${pct}%) إلى ${boxWallet.name}</span>
+            </label>
+            <div id="autoSavePreview" style="font-size:12px;color:var(--ms-muted);margin-top:6px">
+              أدخل مبلغ اليوم لرؤية التقسيم التلقائي بين المصاريف والادخار.
+            </div>
+          </div>` : ""}
+          ${type !== "transfer" ? `
+          <div class="ms-field">
+            <label>الفئة</label>
+            <select id="txCat" class="ms-select">${cats.map(c => `<option value="${c.id}">${c.emoji} ${c.label}</option>`).join("")}</select>
+          </div>
+          <div id="subItemsContainer"></div>` : ""}
+          <div class="ms-field">
+            <label>${type === "transfer" ? "من المحفظة" : "المحفظة"}</label>
+            <select id="txWallet" class="ms-select">${wOpts}</select>
+          </div>
+          ${type === "transfer" ? `<div class="ms-field"><label>إلى المحفظة</label><select id="txToWallet" class="ms-select">${wOpts2}</select></div>` : ""}
+          <div class="ms-field"><label>التاريخ</label><input type="date" id="txDate" class="ms-input" value="${todayISO()}" /></div>
+          <div class="ms-field"><label>ملاحظة (اختياري)</label><input type="text" id="txNote" class="ms-input" placeholder="${type === "income" ? "مثال: مدخول اليوم" : "مثال: بيض / مقاضي"}" /></div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">حفظ العملية</button>
+          </div>
+        </form>
+      `);
+      if (type === "expense") {
+        const catSelect = document.getElementById("txCat");
+        renderSubItemsSection(catSelect.value);
+        catSelect.addEventListener("change", () => { selectedSubItem = null; renderSubItemsSection(catSelect.value); });
+      }
+      if (type === "income" && pct > 0 && boxWallet) {
+        const amtEl = document.getElementById("txAmount");
+        const prevEl = document.getElementById("autoSavePreview");
+        amtEl.addEventListener("input", () => {
+          const val = Number(amtEl.value) || 0;
+          if (val <= 0) {
+            prevEl.textContent = "أدخل مبلغ اليوم لرؤية التقسيم التلقائي بين المصاريف والادخار.";
+          } else {
+            const toSave = Math.round(val * pct / 100);
+            const toSpend = val - toSave;
+            prevEl.innerHTML = `سيُحفظ <strong>${fmt(toSave)}</strong> في الشحيحة، ويبقى <strong>${fmt(toSpend)}</strong> للمصاريف.`;
+          }
+        });
+      }
+      document.getElementById("txForm").onsubmit = (e) => {
+        e.preventDefault();
+        const amount = Number(document.getElementById("txAmount").value);
+        if (!amount || amount <= 0) return;
+        const walletId = document.getElementById("txWallet").value;
+        const toWalletId = type === "transfer" ? document.getElementById("txToWallet").value : undefined;
+        const categoryId = type === "transfer" ? "transfer" : document.getElementById("txCat").value;
+        const note = document.getElementById("txNote").value.trim();
+        const date = document.getElementById("txDate").value || todayISO();
+        const doAutoSave = type === "income" && document.getElementById("txAutoSave")?.checked && pct > 0 && boxWallet && boxWallet.id !== walletId;
+        const savedPart = doAutoSave ? Math.round(amount * pct / 100) : 0;
+        const spendPart = amount - savedPart;
+
+        state.wallets = state.wallets.map(w => {
+          if (type === "expense" && w.id === walletId) return { ...w, balance: w.balance - amount };
+          if (type === "income") {
+            if (w.id === walletId) return { ...w, balance: w.balance + spendPart };
+            if (doAutoSave && w.id === boxWallet.id) return { ...w, balance: w.balance + savedPart };
+          }
+          if (type === "transfer") {
+            if (w.id === walletId) return { ...w, balance: w.balance - amount };
+            if (w.id === toWalletId) return { ...w, balance: w.balance + amount };
+          }
+          return w;
+        });
+        state.transactions.unshift({
+          id: "tx_" + Date.now(), type, amount, categoryId,
+          itemEmoji: selectedSubItem ? selectedSubItem.emoji : undefined,
+          walletId, toWalletId,
+          note: note || (doAutoSave ? `أجرة اليوم (ادخار ${fmt(savedPart)})` : ""),
+          date,
+        });
+        closeModal();
+        save();
+      };
+    };
+
+    window.deleteTx = (id) => {
+      const tx = state.transactions.find(t => t.id === id);
+      if (!tx) return;
+      state.wallets = state.wallets.map(w => {
+        if (tx.type === "expense" && w.id === tx.walletId) return { ...w, balance: w.balance + tx.amount };
+        if (tx.type === "income" && w.id === tx.walletId) return { ...w, balance: w.balance - tx.amount };
+        if (tx.type === "transfer") {
+          if (w.id === tx.walletId) return { ...w, balance: w.balance + tx.amount };
+          if (w.id === tx.toWalletId) return { ...w, balance: w.balance - tx.amount };
+        }
+        return w;
+      });
+      state.transactions = state.transactions.filter(t => t.id !== id);
+      save();
+    };
+
+    // --- Shopping List (ورقة القضيان) ---
+    window.addShoppingItem = (e) => {
+      e.preventDefault();
+      const nameEl = document.getElementById("shopName");
+      const emojiEl = document.getElementById("shopEmoji");
+      const name = nameEl.value.trim();
+      if (!name) return;
+      state.shoppingList.unshift({ id: "sh_" + Date.now(), name, emoji: emojiEl.value || "🛒", done: false });
+      save();
+    };
+
+    window.buyShoppingItem = (id) => {
+      const item = state.shoppingList.find(s => s.id === id);
+      if (!item) return;
+      const wOpts = state.wallets.map(w => `<option value="${w.id}">${w.emoji} ${w.name}</option>`).join("");
+      openModal(`
+        <h3>تسجيل شراء: ${item.emoji} ${item.name}</h3>
+        <form id="buyForm">
+          <div class="ms-field"><label>كم دفعت؟ (دج)</label><input id="buyAmt" type="number" min="1" required autofocus class="ms-input" placeholder="مثال: 400" /></div>
+          <div class="ms-field"><label>المحفظة</label><select id="buyWal" class="ms-select">${wOpts}</select></div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">✓ تم الشراء وتسجيل المصروف</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("buyForm").onsubmit = (e) => {
+        e.preventDefault();
+        const amt = Number(document.getElementById("buyAmt").value);
+        const wid = document.getElementById("buyWal").value;
+        state.shoppingList = state.shoppingList.map(s => s.id === id ? { ...s, done: true } : s);
+        state.wallets = state.wallets.map(w => w.id === wid ? { ...w, balance: w.balance - amt } : w);
+        state.transactions.unshift({
+          id: "tx_" + Date.now(), type: "expense", amount: amt, categoryId: "groceries",
+          itemEmoji: item.emoji, walletId: wid, note: item.name, date: todayISO(),
+        });
+        closeModal();
+        save();
+      };
+    };
+
+    window.deleteShoppingItem = (id) => { state.shoppingList = state.shoppingList.filter(s => s.id !== id); save(); };
+    window.clearDoneShopping = () => { state.shoppingList = state.shoppingList.filter(s => !s.done); save(); };
+
+    // --- Debts (دفتر الديون والسلف) ---
+    window.openDebtModal = () => {
+      openModal(`
+        <h3>تسجيل دين / سلف</h3>
+        <form id="dForm">
+          <div class="ms-field">
+            <label>النوع</label>
+            <select id="dType" class="ms-select">
+              <option value="lent">لي عند الناس (أسلفت شخصاً)</option>
+              <option value="borrowed">عليّ للناس (تدينت من شخص)</option>
+            </select>
+          </div>
+          <div class="ms-field"><label>اسم الشخص / المحل</label><input id="dPerson" required class="ms-input" placeholder="مثال: كريم / محل الحي" /></div>
+          <div class="ms-field"><label>المبلغ (دج)</label><input id="dAmt" type="number" min="1" required class="ms-input" placeholder="2000" /></div>
+          <div class="ms-field"><label>تاريخ الاستحقاق / السداد (اختياري)</label><input id="dDue" type="date" class="ms-input" /></div>
+          <div class="ms-field"><label>ملاحظة (اختياري)</label><input id="dNote" class="ms-input" placeholder="مثال: سلف حتى آخر الشهر" /></div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">حفظ</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("dForm").onsubmit = (e) => {
+        e.preventDefault();
+        state.debts.unshift({
+          id: "d_" + Date.now(),
+          type: document.getElementById("dType").value,
+          person: document.getElementById("dPerson").value.trim(),
+          amount: Number(document.getElementById("dAmt").value),
+          dueDate: document.getElementById("dDue").value || "",
+          note: document.getElementById("dNote").value.trim(),
+          paid: false,
+        });
+        closeModal();
+        save();
+      };
+    };
+
+    window.settleDebt = (id) => {
+      const d = state.debts.find(x => x.id === id);
+      if (!d || d.paid) return;
+      const wOpts = state.wallets.map(w => `<option value="${w.id}">${w.emoji} ${w.name}</option>`).join("");
+      openModal(`
+        <h3>تسديد: ${d.person} (${fmt(d.amount)})</h3>
+        <form id="sdForm">
+          <div class="ms-field">
+            <label>${d.type === "lent" ? "إضافة المبلغ المسترجع إلى محفظة" : "خصم المبلغ المسدد من محفظة"}</label>
+            <select id="sdWal" class="ms-select">${wOpts}</select>
+          </div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">✓ تأكيد السداد</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("sdForm").onsubmit = (e) => {
+        e.preventDefault();
+        const wid = document.getElementById("sdWal").value;
+        state.debts = state.debts.map(x => x.id === id ? { ...x, paid: true } : x);
+        state.wallets = state.wallets.map(w => {
+          if (w.id !== wid) return w;
+          return { ...w, balance: d.type === "lent" ? w.balance + d.amount : w.balance - d.amount };
+        });
+        closeModal();
+        save();
+      };
+    };
+
+    window.deleteDebt = (id) => { state.debts = state.debts.filter(d => d.id !== id); save(); };
+
+    // --- Fixed Monthly Bills (المصاريف الثابتة) ---
+    window.openFixedBillModal = () => {
+      openModal(`
+        <h3>إضافة مصروف شهري ثابت</h3>
+        <form id="fbForm">
+          <div class="ms-field"><label>الاسم</label><input id="fbTitle" required class="ms-input" placeholder="مثال: اشتراك الإنترنت / الكراء" /></div>
+          <div class="ms-field"><label>أيقونة</label><input id="fbEmoji" class="ms-input" value="🔁" /></div>
+          <div class="ms-field"><label>المبلغ المعتاد (دج)</label><input id="fbAmt" type="number" min="1" required class="ms-input" placeholder="2000" /></div>
+          <div class="ms-field">
+            <label>الفئة</label>
+            <select id="fbCat" class="ms-select">${EXP_CATS.map(c => `<option value="${c.id}">${c.emoji} ${c.label}</option>`).join("")}</select>
+          </div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">حفظ</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("fbForm").onsubmit = (e) => {
+        e.preventDefault();
+        state.fixedBills.push({
+          id: "fb_" + Date.now(),
+          title: document.getElementById("fbTitle").value.trim(),
+          emoji: document.getElementById("fbEmoji").value || "🔁",
+          amount: Number(document.getElementById("fbAmt").value),
+          categoryId: document.getElementById("fbCat").value,
+          lastPaidMonth: "",
+        });
+        closeModal();
+        save();
+      };
+    };
+
+    window.payFixedBill = (id) => {
+      const fb = state.fixedBills.find(b => b.id === id);
+      if (!fb) return;
+      const wid = state.wallets[0]?.id;
+      if (!wid) return;
+      state.fixedBills = state.fixedBills.map(b => b.id === id ? { ...b, lastPaidMonth: monthKey } : b);
+      state.wallets = state.wallets.map(w => w.id === wid ? { ...w, balance: w.balance - fb.amount } : w);
+      state.transactions.unshift({
+        id: "tx_" + Date.now(), type: "expense", amount: fb.amount, categoryId: fb.categoryId,
+        itemEmoji: fb.emoji, walletId: wid, note: fb.title, date: todayISO(),
+      });
+      save();
+    };
+
+    window.deleteFixedBill = (id) => { state.fixedBills = state.fixedBills.filter(b => b.id !== id); save(); };
+
+    // --- Wallets, Goals, Budgets ---
+    window.openWalletModal = () => {
+      openModal(`
+        <h3>إضافة محفظة جديدة</h3>
+        <form id="wForm">
+          <div class="ms-field"><label>اسم المحفظة</label><input id="wName" required class="ms-input" placeholder="مثال: حساب بنكي" /></div>
+          <div class="ms-field"><label>أيقونة</label><input id="wEmoji" class="ms-input" value="👛" /></div>
+          <div class="ms-field"><label>الرصيد الحالي (دج)</label><input id="wBal" type="number" class="ms-input" placeholder="0" /></div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">إضافة</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("wForm").onsubmit = (e) => {
+        e.preventDefault();
+        state.wallets.push({
+          id: "w_" + Date.now(), name: document.getElementById("wName").value.trim(),
+          emoji: document.getElementById("wEmoji").value || "👛", balance: Number(document.getElementById("wBal").value) || 0,
+        });
+        closeModal(); save();
+      };
+    };
+
+    window.openGoalModal = () => {
+      openModal(`
+        <h3>إضافة هدف ادخار جديد</h3>
+        <form id="gForm">
+          <div class="ms-field"><label>اسم الهدف</label><input id="gTitle" required class="ms-input" placeholder="مثال: رأس مال التجارة" /></div>
+          <div class="ms-field"><label>أيقونة</label><input id="gEmoji" class="ms-input" value="🎯" /></div>
+          <div class="ms-field"><label>المبلغ المستهدف (دج)</label><input id="gTarget" type="number" min="1" required class="ms-input" placeholder="100000" /></div>
+          <div class="ms-field"><label>التاريخ المستهدف للشراء / الإنجاز (اختياري)</label><input id="gDue" type="date" class="ms-input" /></div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">حفظ الهدف</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("gForm").onsubmit = (e) => {
+        e.preventDefault();
+        state.goals.push({
+          id: "g_" + Date.now(), title: document.getElementById("gTitle").value.trim(),
+          emoji: document.getElementById("gEmoji").value || "🎯", target: Number(document.getElementById("gTarget").value), saved: 0,
+          dueDate: document.getElementById("gDue").value || "",
+        });
+        closeModal(); save();
+      };
+    };
+
+    window.openFundGoal = (goalId) => {
+      const wOpts = state.wallets.map(w => `<option value="${w.id}">${w.emoji} ${w.name} (${fmt(w.balance)})</option>`).join("");
+      openModal(`
+        <h3>إضافة مبلغ للهدف</h3>
+        <form id="fgForm">
+          <div class="ms-field"><label>المبلغ (دج)</label><input id="fgAmt" type="number" min="1" required autofocus class="ms-input" placeholder="5000" /></div>
+          <div class="ms-field"><label>خصم من المحفظة</label><select id="fgWal" class="ms-select">${wOpts}</select></div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">تأكيد</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("fgForm").onsubmit = (e) => {
+        e.preventDefault();
+        const amt = Number(document.getElementById("fgAmt").value);
+        const wid = document.getElementById("fgWal").value;
+        state.goals = state.goals.map(g => g.id === goalId ? { ...g, saved: g.saved + amt } : g);
+        state.wallets = state.wallets.map(w => w.id === wid ? { ...w, balance: w.balance - amt } : w);
+        closeModal(); save();
+      };
+    };
+
+    window.deleteGoal = (id) => { state.goals = state.goals.filter(g => g.id !== id); save(); };
+    window.updateBudget = (catId, val) => { state.budgets[catId] = Math.max(0, Number(val) || 0); save(); };
+
+    function render() {
+      document.body.classList.toggle("dark", !!state.darkMode);
+      const totalBalance = state.wallets.reduce((s, w) => s + w.balance, 0);
+      const mTxs = state.transactions.filter(t => t.date.startsWith(monthKey));
+      const mInc = mTxs.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+      const mExp = mTxs.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+      const mNet = mInc - mExp;
+      const sRate = mInc > 0 ? Math.round((mNet / mInc) * 100) : 0;
+
+      const today = todayISO();
+      const todayInc = state.transactions.filter(t => t.date === today && t.type === "income").reduce((s, t) => s + t.amount, 0);
+      const todayExp = state.transactions.filter(t => t.date === today && t.type === "expense").reduce((s, t) => s + t.amount, 0);
+      const workDaysSet = new Set(mTxs.filter(t => t.type === "income").map(t => t.date));
+      const workDaysCount = workDaysSet.size;
+      const avgPerWorkDay = workDaysCount > 0 ? Math.round(mInc / workDaysCount) : 0;
+
+      const q = searchQuery.trim().toLowerCase();
+      const filteredTxs = q ? mTxs.filter(t => {
+        const cat = getCat(t.categoryId)?.label || "";
+        return (t.note || "").toLowerCase().includes(q) || cat.toLowerCase().includes(q);
+      }) : mTxs;
+      const filteredSum = filteredTxs.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+
+      const expByCat = {};
+      mTxs.forEach(t => { if (t.type === "expense") expByCat[t.categoryId] = (expByCat[t.categoryId] || 0) + t.amount; });
+      const sortedCats = EXP_CATS.map(c => ({ ...c, spent: expByCat[c.id] || 0 })).filter(c => c.spent > 0).sort((a, b) => b.spent - a.spent);
+
+      const upcomingPlans = [];
+      state.debts.forEach(d => {
+        if (!d.paid && d.type === "borrowed" && d.dueDate) {
+          const days = daysUntil(d.dueDate);
+          if (days !== null) {
+            const perDay = days > 0 ? Math.ceil(d.amount / days) : d.amount;
+            upcomingPlans.push({ emoji: "📌", title: `دين: ${d.person}`, days, perDay, remaining: d.amount });
+          }
+        }
+      });
+      state.goals.forEach(g => {
+        const rem = Math.max(0, g.target - g.saved);
+        if (rem > 0 && g.dueDate) {
+          const days = daysUntil(g.dueDate);
+          if (days !== null) {
+            const perDay = days > 0 ? Math.ceil(rem / days) : rem;
+            upcomingPlans.push({ emoji: g.emoji, title: g.title, days, perDay, remaining: rem });
+          }
+        }
+      });
+      upcomingPlans.sort((a, b) => a.days - b.days);
+      const totalDailyNeeded = upcomingPlans.reduce((s, p) => s + p.perDay, 0);
+
+      let mainHtml = "";
+      if (activeTab === "dashboard") {
+        mainHtml = `
+          <div class="ms-daily-tip">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--ms-primary)">👷 ملخص العامل اليومي (اليوم)</div>
+              <div style="font-size:12px;color:var(--ms-muted);margin-top:4px">
+                مدخول اليوم: <strong class="ms-num-income">${fmt(todayInc)}</strong> · مصروف اليوم: <strong class="ms-num-expense">${fmt(todayExp)}</strong>
+              </div>
+              <div style="font-size:12px;color:var(--ms-muted);margin-top:2px">
+                أيام العمل هذا الشهر: <strong>${workDaysCount}</strong> · معدل يوم العمل: <strong>${fmt(avgPerWorkDay)}</strong>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:12px;font-weight:600;color:var(--ms-muted)">🏦 ادخار تلقائي:</span>
+              <select class="ms-select" style="width:auto;padding:5px 10px;font-size:12px" onchange="setAutoSavePct(this.value)">
+                ${[0, 10, 15, 20, 25, 30, 40].map(p => `<option value="${p}" ${(state.autoSavePct || 0) === p ? "selected" : ""}>${p === 0 ? "إيقاف (0%)" : p + "%"}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+
+          ${upcomingPlans.length > 0 ? `
+          <section class="ms-card" style="border-color:#f59e0b">
+            <div class="ms-section-head" style="margin-bottom:8px">
+              <h2>⏰ خطة التزاماتك القادمة (مطلوب يومياً: <span class="ms-num-expense">${fmt(totalDailyNeeded)}</span>)</h2>
+            </div>
+            <div class="ms-list">
+              ${upcomingPlans.map(p => `
+                <div class="ms-tx-item" style="padding:8px 10px">
+                  <div class="ms-tx-left">
+                    <span style="font-size:18px">${p.emoji}</span>
+                    <div>
+                      <div class="ms-tx-title">${p.title}</div>
+                      <div class="ms-tx-meta">
+                        ${p.days <= 0 ? "⚠️ حان الموعد!" : `باقي ${p.days} ${p.days === 1 ? "يوم" : "أيام"}`} · المتبقي: ${fmt(p.remaining)}
+                      </div>
+                    </div>
+                  </div>
+                  <span class="ms-badge ${p.days <= 3 ? "ms-badge-danger" : "ms-badge-warn"}">خبي ${fmt(p.perDay)} / يوم</span>
+                </div>
+              `).join("")}
+            </div>
+          </section>` : ""}
+
+          <div class="ms-kpi-grid">
+            <div class="ms-card">
+              <div class="ms-kpi-title"><span>مداخيل الشهر</span><span>📈</span></div>
+              <div class="ms-kpi-num ms-num-income">${fmt(mInc)}</div>
+            </div>
+            <div class="ms-card">
+              <div class="ms-kpi-title"><span>مصاريف الشهر</span><span>📉</span></div>
+              <div class="ms-kpi-num ms-num-expense">${fmt(mExp)}</div>
+            </div>
+            <div class="ms-card">
+              <div class="ms-kpi-title"><span>صافي الادخار</span><span class="ms-badge ${mNet >= 0 ? "ms-badge-ok" : "ms-badge-danger"}">${mInc > 0 ? sRate + "%" : "0%"}</span></div>
+              <div class="ms-kpi-num ${mNet >= 0 ? "ms-num-primary" : "ms-num-expense"}">${fmt(mNet)}</div>
+            </div>
+          </div>
+
+          <!-- Fixed Monthly Bills -->
+          <section class="ms-card">
+            <div class="ms-section-head">
+              <h2>🔁 المصاريف الثابتة (دفع سريع)</h2>
+              <button class="ms-btn-outline ms-btn-sm" onclick="openFixedBillModal()">+ التزام جديد</button>
+            </div>
+            ${state.fixedBills.length === 0 ? `<div class="ms-empty" style="padding:12px">أضف التزاماتك الشهرية (الكراء، الإنترنت...) لدفعها بضغطة زر.</div>` : `
+              <div class="ms-fixed-grid">
+                ${state.fixedBills.map(fb => {
+                  const isPaid = fb.lastPaidMonth === monthKey;
+                  return `<div class="ms-fixed-chip">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                      <span style="font-weight:700;font-size:13px">${fb.emoji} ${fb.title}</span>
+                      <button class="ms-icon-btn" onclick="deleteFixedBill('${fb.id}')">✕</button>
+                    </div>
+                    <div style="font-size:13px;color:var(--ms-muted);font-weight:600">${fmt(fb.amount)}</div>
+                    ${isPaid
+                      ? `<span class="ms-badge ms-badge-ok" style="justify-content:center">✓ مدفوع هذا الشهر</span>`
+                      : `<button class="ms-btn ms-btn-sm" onclick="payFixedBill('${fb.id}')">دفع هذا الشهر</button>`}
+                  </div>`;
+                }).join("")}
+              </div>`}
+          </section>
+
+          <div class="ms-grid-2">
+            <section class="ms-card">
+              <div class="ms-section-head"><h2>أين ذهبت مصاريفك؟</h2></div>
+              ${sortedCats.length === 0 ? `<div class="ms-empty">لا توجد مصاريف مسجلة بعد.</div>` : `
+                <div class="ms-list">
+                  ${sortedCats.map(c => {
+                    const pct = mExp > 0 ? Math.round((c.spent / mExp) * 100) : 0;
+                    return `<div class="ms-bar-row">
+                      <div class="ms-bar-head"><span>${c.emoji} ${c.label}</span><span>${fmt(c.spent)} (${pct}%)</span></div>
+                      <div class="ms-bar-track"><div class="ms-bar-fill" style="width:${pct}%;background:${c.color}"></div></div>
+                    </div>`;
+                  }).join("")}
+                </div>`}
+            </section>
+
+            <section class="ms-card">
+              <div class="ms-section-head"><h2>آخر العمليات (${filteredTxs.length})</h2></div>
+              <div class="ms-search-row">
+                <input id="txSearchInput" type="text" class="ms-input" style="flex:1" placeholder="🔍 ابحث (مثلاً: بيض، إنترنت...)" value="${searchQuery}" oninput="updateSearch(this.value)" />
+                ${q ? `<span class="ms-badge ms-badge-warn">المجموع: ${fmt(filteredSum)}</span>` : ""}
+              </div>
+              ${filteredTxs.length === 0 ? `<div class="ms-empty">لا توجد عمليات مطابقة.</div>` : `
+                <div class="ms-list">
+                  ${filteredTxs.map(tx => {
+                    const cat = getCat(tx.categoryId);
+                    const isExp = tx.type === "expense", isInc = tx.type === "income";
+                    const wName = getWallet(tx.walletId)?.name || "محفظة";
+                    const toName = tx.toWalletId ? (getWallet(tx.toWalletId)?.name || "محفظة") : "";
+                    const icon = tx.type === "transfer" ? "⇄" : (tx.itemEmoji || cat?.emoji || "💵");
+                    return `<div class="ms-tx-item">
+                      <div class="ms-tx-left">
+                        <div class="ms-tx-emoji">${icon}</div>
+                        <div style="min-width:0">
+                          <div class="ms-tx-title">${tx.note || (tx.type === "transfer" ? "تحويل بين المحافظ" : (cat?.label || "عملية"))}</div>
+                          <div class="ms-tx-meta">${tx.type === "transfer" ? `${wName} ← ${toName}` : wName} · ${tx.date}</div>
+                        </div>
+                      </div>
+                      <div class="ms-tx-right">
+                        <span class="ms-tx-amount ${isExp ? "ms-num-expense" : isInc ? "ms-num-income" : "ms-num-primary"}">${isExp ? "−" : isInc ? "+" : ""}${fmt(tx.amount)}</span>
+                        <button class="ms-icon-btn" onclick="deleteTx('${tx.id}')">✕</button>
+                      </div>
+                    </div>`;
+                  }).join("")}
+                </div>`}
+            </section>
+          </div>
+        `;
+      } else if (activeTab === "shopping") {
+        const pending = state.shoppingList.filter(s => !s.done).length;
+        mainHtml = `
+          <section class="ms-card">
+            <div class="ms-section-head">
+              <h2>📝 ورقة القضيان (${pending} متبقي)</h2>
+              ${state.shoppingList.some(s => s.done) ? `<button class="ms-btn-outline ms-btn-sm" onclick="clearDoneShopping()">مسح المشتراة</button>` : ""}
+            </div>
+            <form onsubmit="addShoppingItem(event)" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+              <input id="shopEmoji" class="ms-input" style="width:58px;text-align:center" value="🛒" />
+              <input id="shopName" required class="ms-input" style="flex:1;min-width:160px" placeholder="أضف ما ينقص المنزل (مثلاً: بيض، سكر، زيت...)" />
+              <button type="submit" class="ms-btn">+ إضافة</button>
+            </form>
+            ${state.shoppingList.length === 0 ? `<div class="ms-empty">ورقة القضيان فارغة! أضف الأغراض التي تحتاج شراءها.</div>` : `
+              <div class="ms-list">
+                ${state.shoppingList.map(item => `
+                  <div class="ms-tx-item">
+                    <div class="ms-tx-left">
+                      <div class="ms-tx-emoji">${item.emoji}</div>
+                      <div class="ms-tx-title ${item.done ? "ms-done" : ""}">${item.name}</div>
+                    </div>
+                    <div class="ms-tx-right">
+                      ${item.done
+                        ? `<span class="ms-badge ms-badge-ok">✓ تم الشراء</span>`
+                        : `<button class="ms-btn ms-btn-sm" onclick="buyShoppingItem('${item.id}')">تم الشراء ✓</button>`}
+                      <button class="ms-icon-btn" onclick="deleteShoppingItem('${item.id}')">✕</button>
+                    </div>
+                  </div>
+                `).join("")}
+              </div>`}
+          </section>
+        `;
+      } else if (activeTab === "debts") {
+        const totalLent = state.debts.filter(d => d.type === "lent" && !d.paid).reduce((s, d) => s + d.amount, 0);
+        const totalBorrowed = state.debts.filter(d => d.type === "borrowed" && !d.paid).reduce((s, d) => s + d.amount, 0);
+        mainHtml = `
+          <div class="ms-grid-2">
+            <div class="ms-card">
+              <div class="ms-kpi-title"><span>لي عند الناس (سلف)</span><span>💚</span></div>
+              <div class="ms-kpi-num ms-num-income">${fmt(totalLent)}</div>
+            </div>
+            <div class="ms-card">
+              <div class="ms-kpi-title"><span>عليّ للناس (ديون)</span><span>❤️</span></div>
+              <div class="ms-kpi-num ms-num-expense">${fmt(totalBorrowed)}</div>
+            </div>
+          </div>
+          <section class="ms-card">
+            <div class="ms-section-head">
+              <h2>🤝 دفتر الديون والسلف</h2>
+              <button class="ms-btn" onclick="openDebtModal()">+ تسجيل دين</button>
+            </div>
+            ${state.debts.length === 0 ? `<div class="ms-empty">لا توجد ديون مسجلة حالياً.</div>` : `
+              <div class="ms-list">
+                ${state.debts.map(d => `
+                  <div class="ms-tx-item">
+                    <div class="ms-tx-left">
+                      <div class="ms-tx-emoji">${d.type === "lent" ? "🤝" : "📌"}</div>
+                      <div>
+                        <div class="ms-tx-title ${d.paid ? "ms-done" : ""}">${d.person} — <span class="${d.type === "lent" ? "ms-num-income" : "ms-num-expense"}">${fmt(d.amount)}</span></div>
+                        <div class="ms-tx-meta">${d.type === "lent" ? "لي عنده" : "عليّ له"}${d.note ? " · " + d.note : ""}</div>
+                      </div>
+                    </div>
+                    <div class="ms-tx-right">
+                      ${d.paid
+                        ? `<span class="ms-badge ms-badge-ok">✓ مسدد</span>`
+                        : `<button class="ms-btn ms-btn-sm" onclick="settleDebt('${d.id}')">تم السداد ✓</button>`}
+                      <button class="ms-icon-btn" onclick="deleteDebt('${d.id}')">✕</button>
+                    </div>
+                  </div>
+                `).join("")}
+              </div>`}
+          </section>
+        `;
+      } else if (activeTab === "goals") {
+        mainHtml = `
+          <section>
+            <div class="ms-section-head">
+              <h2>🎯 أهداف الادخار</h2>
+              <button class="ms-btn" onclick="openGoalModal()">+ هدف جديد</button>
+            </div>
+            ${state.goals.length === 0 ? `<div class="ms-card ms-empty">لا توجد أهداف ادخار حالياً.</div>` : `
+              <div class="ms-grid-2">
+                ${state.goals.map(g => {
+                  const pct = Math.min(100, Math.round((g.saved / g.target) * 100));
+                  const rem = Math.max(0, g.target - g.saved);
+                  return `<div class="ms-card">
+                    <div class="ms-section-head" style="margin-bottom:10px">
+                      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:22px">${g.emoji}</span><strong>${g.title}</strong></div>
+                      <button class="ms-icon-btn" onclick="deleteGoal('${g.id}')">✕</button>
+                    </div>
+                    <div class="ms-bar-row" style="margin-bottom:12px">
+                      <div class="ms-bar-head"><span>المجموع: ${fmt(g.saved)}</span><span>${pct}%</span></div>
+                      <div class="ms-bar-track"><div class="ms-bar-fill" style="width:${pct}%;background:#0f766e"></div></div>
+                      <div class="ms-tx-meta">الهدف: ${fmt(g.target)} · المتبقي: ${fmt(rem)}</div>
+                    </div>
+                    <button class="ms-btn" style="width:100%" onclick="openFundGoal('${g.id}')">+ إضافة مبلغ لهذا الهدف</button>
+                  </div>`;
+                }).join("")}
+              </div>`}
+          </section>
+        `;
+      } else if (activeTab === "wallets") {
+        mainHtml = `
+          <section>
+            <div class="ms-section-head">
+              <h2>👛 محافظك وحساباتك</h2>
+              <button class="ms-btn" onclick="openWalletModal()">+ إضافة محفظة</button>
+            </div>
+            <div class="ms-wallet-grid">
+              ${state.wallets.map(w => `
+                <div class="ms-wallet-card">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:26px">${w.emoji}</span>
+                    <span class="ms-badge ms-badge-ok">نشطة</span>
+                  </div>
+                  <div style="font-weight:700;font-size:15px">${w.name}</div>
+                  <div class="ms-kpi-num ms-num-primary">${fmt(w.balance)}</div>
+                </div>
+              `).join("")}
+            </div>
+          </section>
+
+          <section class="ms-card">
+            <div class="ms-section-head"><h2>📋 سقف الميزانية الشهرية (${formatMonthAr(monthKey)})</h2></div>
+            <div class="ms-list">
+              ${EXP_CATS.map(c => {
+                const limit = state.budgets[c.id] || 0;
+                const spent = expByCat[c.id] || 0;
+                const pct = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+                const over = limit > 0 && spent > limit;
+                const warn = limit > 0 && pct >= 75 && !over;
+                return `<div class="ms-tx-item" style="flex-direction:column;align-items:stretch">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+                    <div style="font-weight:700;font-size:14px">${c.emoji} ${c.label}</div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="font-size:12px;color:var(--ms-muted)">السقف (دج):</span>
+                      <input type="number" min="0" class="ms-input" style="width:110px;padding:6px 8px" value="${limit || ""}" placeholder="0" onchange="updateBudget('${c.id}', this.value)" />
+                    </div>
+                  </div>
+                  ${limit > 0 ? `
+                    <div class="ms-bar-row" style="margin-top:6px">
+                      <div class="ms-bar-head">
+                        <span>المصروف: ${fmt(spent)}</span>
+                        <span class="ms-badge ${over ? "ms-badge-danger" : warn ? "ms-badge-warn" : "ms-badge-ok"}">${over ? "تجاوزت السقف!" : pct + "%"}</span>
+                      </div>
+                      <div class="ms-bar-track"><div class="ms-bar-fill" style="width:${pct}%;background:${over ? "#be123c" : warn ? "#d97706" : "#0f766e"}"></div></div>
+                    </div>` : ""}
+                </div>`;
+              }).join("")}
+            </div>
+          </section>
+        `;
+      }
+
+      document.getElementById("app").innerHTML = `
+        <header class="ms-header">
+          <div class="ms-container">
+            <div class="ms-topbar">
+              <div class="ms-brand">
+                <div class="ms-brand-icon">⚖️</div>
+                <div><h1>ميزانية</h1><p>تسيير المال والادخار المنزلي</p></div>
+              </div>
+              <div class="ms-top-controls">
+                <div class="ms-month-picker">
+                  <button onclick="changeMonth(-1)">‹</button>
+                  <span>${formatMonthAr(monthKey)}</span>
+                  <button onclick="changeMonth(1)">›</button>
+                </div>
+                <button class="ms-pill-btn" onclick="toggleCurrency()">${state.currencyMode === "dzd" ? "العملة: دينار (دج)" : "العملة: سنتيم"}</button>
+                <button class="ms-pill-btn" onclick="toggleDarkMode()">${state.darkMode ? "☀️ نهاري" : "🌙 ليلي"}</button>
+              </div>
+            </div>
+            <div class="ms-balance-hero">
+              <div>
+                <div class="ms-balance-label">الرصيد الإجمالي في كل المحافظ</div>
+                <div class="ms-balance-value">${fmt(totalBalance)}</div>
+              </div>
+              <div class="ms-quick-actions">
+                <button class="ms-action-btn ms-action-expense" onclick="openTxModal('expense')">− مصروف</button>
+                <button class="ms-action-btn ms-action-income" onclick="openTxModal('income')">+ مدخول</button>
+                <button class="ms-action-btn ms-action-transfer" onclick="openTxModal('transfer')">⇄ تحويل</button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="ms-container">
+          <nav class="ms-desktop-tabs">
+            <button class="ms-tab-btn ${activeTab === "dashboard" ? "active" : ""}" onclick="setTab('dashboard')">📊 الرئيسية</button>
+            <button class="ms-tab-btn ${activeTab === "shopping" ? "active" : ""}" onclick="setTab('shopping')">📝 القضيان</button>
+            <button class="ms-tab-btn ${activeTab === "debts" ? "active" : ""}" onclick="setTab('debts')">🤝 الديون</button>
+            <button class="ms-tab-btn ${activeTab === "goals" ? "active" : ""}" onclick="setTab('goals')">🎯 الأهداف</button>
+            <button class="ms-tab-btn ${activeTab === "wallets" ? "active" : ""}" onclick="setTab('wallets')">👛 المحافظ والميزانية</button>
+          </nav>
+          <main class="ms-main">${mainHtml}</main>
+        </div>
+
+        <nav class="ms-bottom-nav">
+          <button class="${activeTab === "dashboard" ? "active" : ""}" onclick="setTab('dashboard')"><span>📊</span><span>الرئيسية</span></button>
+          <button class="${activeTab === "shopping" ? "active" : ""}" onclick="setTab('shopping')"><span>📝</span><span>القضيان</span></button>
+          <button class="${activeTab === "debts" ? "active" : ""}" onclick="setTab('debts')"><span>🤝</span><span>الديون</span></button>
+          <button class="${activeTab === "goals" ? "active" : ""}" onclick="setTab('goals')"><span>🎯</span><span>الأهداف</span></button>
+          <button class="${activeTab === "wallets" ? "active" : ""}" onclick="setTab('wallets')"><span>👛</span><span>المحافظ</span></button>
+        </nav>
+      `;
+    }
+
+    render();
+  </script>
+</body>
+</html>

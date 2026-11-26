@@ -1,0 +1,21 @@
+{
+  "name": "ميزانية — تسيير المال والادخار",
+  "short_name": "ميزانية",
+  "description": "تطبيق شخصي لتسيير المصاريف اليومية، قفة الدار، الديون وأهداف الادخار",
+  "start_url": "/masrouf",
+  "scope": "/masrouf",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f2a44",
+  "theme_color": "#0f766e",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/mizaniya-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

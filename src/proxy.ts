@@ -6,6 +6,10 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
 
+  if (pathname === "/masrouf" || pathname.startsWith("/masrouf/")) {
+    return NextResponse.next();
+  }
+
   if (pathname === "/login") {
     if (session) return NextResponse.redirect(new URL("/", request.url));
     return NextResponse.next();
@@ -18,5 +22,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|logo.png|icon-.*\\.png|manifest.webmanifest).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|logo.png|icon-.*\\.png|manifest.webmanifest|mizaniya\\.webmanifest|mizaniya-icon\\.svg|mizaniya\\.html).*)",
+  ],
 };

@@ -1234,9 +1234,62 @@
       const w1Exp = w1Txs.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
       const w2Exp = state.transactions.filter(t => t.date >= d14Start && t.date < d7Start && t.type === "expense").reduce((s, t) => s + t.amount, 0);
 
+      const daysElapsed = isThisMonth ? Math.max(1, todayDayNum) : daysInMonth;
+      const avgDailyExp = mExp > 0 ? Math.max(1, Math.round(mExp / daysElapsed)) : 1000;
+      const safeDays = totalBalance > 0 ? Math.floor(totalBalance / avgDailyExp) : 0;
+
+      // Calculate consecutive active days streak
+      const activeDates = new Set(state.transactions.map(t => t.date));
+      let streakDays = 0;
+      let cursor = activeDates.has(today) ? 0 : -1;
+      while (activeDates.has(addDaysISO(cursor))) {
+        streakDays++;
+        cursor--;
+      }
+      const boxBal = state.wallets.find(w => w.id === "w_box")?.balance || 0;
+      const badges = [
+        { label: "🥉 بداية قوية", unlocked: state.transactions.length >= 3 },
+        { label: "🔥 ملتزم يومياً", unlocked: streakDays >= 3 },
+        { label: "🏦 مدخر ذكي", unlocked: boxBal >= 20000 },
+        { label: "🛡️ أمان 30 يوم", unlocked: safeDays >= 30 },
+        { label: "🚀 جاهز للبزنس", unlocked: boxBal >= 100000 },
+      ];
+
       let mainHtml = "";
       if (activeTab === "dashboard") {
         mainHtml = `
+          <!-- Safety Runway & Streak Badges -->
+          <div class="ms-grid-2">
+            <div class="ms-card" style="padding:14px">
+              <div class="ms-kpi-title">
+                <span>🛡️ صندوق الأمان (بدون عمل)</span>
+                <span class="ms-badge ${safeDays >= 30 ? "ms-badge-ok" : safeDays >= 7 ? "ms-badge-warn" : "ms-badge-danger"}">
+                  ${safeDays >= 30 ? "ممتاز!" : safeDays >= 7 ? "جيد" : "انتبه"}
+                </span>
+              </div>
+              <div style="font-size:20px;font-weight:700;color:var(--ms-primary)">
+                يكفيك لمدة ${safeDays} ${safeDays === 1 ? "يوم" : "يوماً"}
+              </div>
+              <div style="font-size:11px;color:var(--ms-muted);margin-top:4px">
+                حسب معدل مصروفك اليومي (${fmt(avgDailyExp)} / يوم)
+              </div>
+            </div>
+
+            <div class="ms-card" style="padding:14px">
+              <div class="ms-kpi-title">
+                <span>🔥 سلسلة الالتزام والأوسمة</span>
+                <span class="ms-badge ms-badge-warn">🔥 ${streakDays} ${streakDays === 1 ? "يوم" : "أيام"}</span>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+                ${badges.map(b => `
+                  <span class="ms-badge ${b.unlocked ? "ms-badge-ok" : ""}" style="${b.unlocked ? "" : "background:var(--ms-surface-2);color:var(--ms-muted);opacity:0.55"}">
+                    ${b.label}
+                  </span>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+
           <!-- Quick 1-Tap Spends -->
           <section class="ms-card" style="padding:12px 14px">
             <div class="ms-section-head" style="margin-bottom:8px">

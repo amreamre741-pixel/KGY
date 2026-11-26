@@ -1145,6 +1145,24 @@
       rec.start();
     };
 
+    window.speakSummary = () => {
+      if (!("speechSynthesis" in window)) {
+        alert("القراءة الصوتية غير مدعومة في هذا المتصفح.");
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const totalBal = state.wallets.reduce((s, w) => s + w.balance, 0);
+      const t = todayISO();
+      const tInc = state.transactions.filter(x => x.date === t && x.type === "income").reduce((s, x) => s + x.amount, 0);
+      const tExp = state.transactions.filter(x => x.date === t && x.type === "expense").reduce((s, x) => s + x.amount, 0);
+      const box = state.wallets.find(w => w.id === "w_box")?.balance || 0;
+      const text = `مرحباً. رصيدك الإجمالي هو ${Math.round(totalBal)} دينار جزائري، منها ${Math.round(box)} دينار في حصالة الادخار. اليوم أدخلت ${Math.round(tInc)} دينار، وصرفت ${Math.round(tExp)} دينار. بالتوفيق في تسيير ميزانيتك.`;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "ar-SA";
+      u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    };
+
     window.openGoalModal = (prefillTitle = "", prefillEmoji = "🎯") => {
       openModal(`
         <h3>إضافة هدف ادخار جديد</h3>
@@ -1294,9 +1312,35 @@
         { label: "🚀 جاهز للبزنس", unlocked: boxBal >= 100000 },
       ];
 
+      const unpaidBorrowed = state.debts.filter(d => d.type === "borrowed" && !d.paid).reduce((s, d) => s + d.amount, 0);
+      const scoreSave = Math.min(35, Math.max(0, Math.round((Math.max(0, sRate) / 30) * 35)));
+      const scoreRunway = Math.min(30, Math.round((Math.min(30, safeDays) / 30) * 30));
+      const scoreStreak = Math.min(15, streakDays * 5);
+      const scoreDebt = unpaidBorrowed === 0 ? 20 : unpaidBorrowed < totalBalance * 0.2 ? 12 : 5;
+      const healthScore = Math.min(100, scoreSave + scoreRunway + scoreStreak + scoreDebt);
+      const healthTip = unpaidBorrowed > 0
+        ? "سداد ديونك المتبقية سيرفع علامتك بسرعة!"
+        : safeDays < 30
+        ? "واصل التغذية التلقائية للشحيحة لتصل لأمان 30 يوماً."
+        : "أداء مالي ممتاز! أنت على الطريق الصحيح لتجميع رأس مال مشروعك.";
+
       let mainHtml = "";
       if (activeTab === "dashboard") {
         mainHtml = `
+          <!-- Financial Health Score -->
+          <section class="ms-card" style="padding:14px 16px">
+            <div class="ms-section-head" style="margin-bottom:8px">
+              <h2>💯 مقياس صحتك المالية</h2>
+              <span class="ms-badge ${healthScore >= 75 ? "ms-badge-ok" : healthScore >= 45 ? "ms-badge-warn" : "ms-badge-danger"}" style="font-size:13px;padding:4px 10px">
+                ${healthScore} / 100
+              </span>
+            </div>
+            <div class="ms-bar-track" style="height:10px;margin-bottom:8px">
+              <div class="ms-bar-fill" style="width:${healthScore}%;background:${healthScore >= 75 ? "#15803d" : healthScore >= 45 ? "#d97706" : "#be123c"}"></div>
+            </div>
+            <div style="font-size:12px;color:var(--ms-muted)">💡 ${healthTip}</div>
+          </section>
+
           <!-- Safety Runway & Streak Badges -->
           <div class="ms-grid-2">
             <div class="ms-card" style="padding:14px">
@@ -1778,6 +1822,7 @@
                 </div>
                 <button class="ms-pill-btn" onclick="toggleCurrency()">${state.currencyMode === "dzd" ? "العملة: دينار (دج)" : "العملة: سنتيم"}</button>
                 <button class="ms-pill-btn" onclick="toggleDarkMode()">${state.darkMode ? "☀️ نهاري" : "🌙 ليلي"}</button>
+                <button class="ms-pill-btn" onclick="speakSummary()">🔊 اقرأ لي</button>
               </div>
             </div>
             <div class="ms-balance-hero">

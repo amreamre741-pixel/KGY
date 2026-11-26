@@ -834,6 +834,44 @@
       };
     };
 
+    window.openEditWalletModal = (id) => {
+      const w = state.wallets.find(x => x.id === id);
+      if (!w) return;
+      openModal(`
+        <h3>تعديل المحفظة</h3>
+        <form id="ewForm">
+          <div class="ms-field"><label>اسم المحفظة</label><input id="ewName" required class="ms-input" value="${w.name}" /></div>
+          <div class="ms-field"><label>أيقونة</label><input id="ewEmoji" class="ms-input" value="${w.emoji}" /></div>
+          <div class="ms-field"><label>الرصيد الحالي (دج)</label><input id="ewBal" type="number" class="ms-input" value="${w.balance}" /></div>
+          <div class="ms-modal-actions">
+            <button type="button" class="ms-btn-outline" onclick="closeModal()">إلغاء</button>
+            <button type="submit" class="ms-btn">حفظ التعديل</button>
+          </div>
+        </form>
+      `);
+      document.getElementById("ewForm").onsubmit = (e) => {
+        e.preventDefault();
+        state.wallets = state.wallets.map(x => x.id === id ? {
+          ...x,
+          name: document.getElementById("ewName").value.trim() || x.name,
+          emoji: document.getElementById("ewEmoji").value.trim() || x.emoji,
+          balance: Number(document.getElementById("ewBal").value) || 0,
+        } : x);
+        closeModal(); save();
+      };
+    };
+
+    window.deleteWallet = (id) => {
+      if (state.wallets.length <= 1) {
+        alert("يجب أن تبقى لديك محفظة واحدة على الأقل.");
+        return;
+      }
+      if (confirm("هل تريد حذف هذه المحفظة؟")) {
+        state.wallets = state.wallets.filter(w => w.id !== id);
+        save();
+      }
+    };
+
     window.openGoalModal = () => {
       openModal(`
         <h3>إضافة هدف ادخار جديد</h3>
@@ -1178,7 +1216,10 @@
                 <div class="ms-wallet-card">
                   <div style="display:flex;justify-content:space-between;align-items:center">
                     <span style="font-size:26px">${w.emoji}</span>
-                    <span class="ms-badge ms-badge-ok">نشطة</span>
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <button class="ms-btn-outline ms-btn-sm" onclick="openEditWalletModal('${w.id}')">✏️ تعديل</button>
+                      <button class="ms-icon-btn" onclick="deleteWallet('${w.id}')" title="حذف المحفظة">✕</button>
+                    </div>
                   </div>
                   <div style="font-weight:700;font-size:15px">${w.name}</div>
                   <div class="ms-kpi-num ms-num-primary">${fmt(w.balance)}</div>

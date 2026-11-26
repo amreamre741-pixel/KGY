@@ -488,6 +488,7 @@
     }
 
     function fmt(amount) {
+      if (state.hideAmounts) return "••••";
       if (state.currencyMode === "centime") return `${Math.round(amount * 100).toLocaleString("fr-DZ")} سنتيم`;
       return `${Math.round(amount).toLocaleString("fr-DZ")} دج`;
     }
@@ -508,6 +509,37 @@
     window.changeMonth = (d) => { monthKey = shiftMonth(monthKey, d); render(); };
     window.toggleCurrency = () => { state.currencyMode = state.currencyMode === "dzd" ? "centime" : "dzd"; save(); };
     window.toggleDarkMode = () => { state.darkMode = !state.darkMode; save(); };
+    window.togglePrivacy = () => { state.hideAmounts = !state.hideAmounts; save(); };
+    window.exportBackup = () => {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mizaniya-backup-${todayISO()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    window.importBackup = (input) => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result));
+          if (parsed && Array.isArray(parsed.wallets) && Array.isArray(parsed.transactions)) {
+            state = { ...defaultState(), ...parsed };
+            save();
+            alert("✅ تم استرجاع نسختك الاحتياطية بنجاح!");
+          } else {
+            alert("⚠️ هذا الملف غير صالح.");
+          }
+        } catch {
+          alert("⚠️ تعذر قراءة الملف.");
+        }
+      };
+      reader.readAsText(file);
+      input.value = "";
+    };
     window.setAutoSavePct = (v) => { state.autoSavePct = Math.max(0, Math.min(80, Number(v) || 0)); save(); };
     window.toggleNoWorkToday = () => {
       const t = todayISO();
@@ -1803,6 +1835,20 @@
               }).join("")}
             </div>
           </section>
+
+          <section class="ms-card">
+            <div class="ms-section-head" style="margin-bottom:6px">
+              <h2>💾 النسخ الاحتياطي وحماية البيانات</h2>
+            </div>
+            <p style="margin:0 0 12px;font-size:12px;color:var(--ms-muted)">
+              احفظ نسخة من كل حساباتك على هاتفك حتى لا تضيع أبداً إذا غيرت الهاتف أو فرمتّه.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="ms-btn" onclick="exportBackup()">⬇️ حفظ نسخة احتياطية</button>
+              <button class="ms-btn-outline" onclick="document.getElementById('backupFileInput').click()">⬆️ استرجاع نسخة</button>
+              <input id="backupFileInput" type="file" accept="application/json" style="display:none" onchange="importBackup(this)" />
+            </div>
+          </section>
         `;
       }
 
@@ -1822,6 +1868,7 @@
                 </div>
                 <button class="ms-pill-btn" onclick="toggleCurrency()">${state.currencyMode === "dzd" ? "العملة: دينار (دج)" : "العملة: سنتيم"}</button>
                 <button class="ms-pill-btn" onclick="toggleDarkMode()">${state.darkMode ? "☀️ نهاري" : "🌙 ليلي"}</button>
+                <button class="ms-pill-btn" onclick="togglePrivacy()">${state.hideAmounts ? "👁️ إظهار" : "👁️ إخفاء"}</button>
                 <button class="ms-pill-btn" onclick="speakSummary()">🔊 اقرأ لي</button>
               </div>
             </div>

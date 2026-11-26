@@ -546,6 +546,12 @@
       state.noWorkDate = state.noWorkDate === t ? "" : t;
       save();
     };
+    window.toggleNoWasteToday = () => {
+      const t = todayISO();
+      const arr = state.noWasteDays || [];
+      state.noWasteDays = arr.includes(t) ? arr.filter(d => d !== t) : [...arr, t];
+      save();
+    };
     window.updateSearch = (val) => { searchQuery = val; render(); const el = document.getElementById("txSearchInput"); if (el) { el.focus(); el.setSelectionRange(val.length, val.length); } };
 
     // --- Sub-items + Custom items + Favorites ---
@@ -1408,6 +1414,18 @@
                   </span>
                 `).join("")}
               </div>
+              ${(() => {
+                const nw = state.noWasteDays || [];
+                const doneToday = nw.includes(today);
+                const monthCount = nw.filter(d => d.startsWith(monthKey)).length;
+                return `
+                <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--ms-border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                  <button class="${doneToday ? "ms-btn" : "ms-btn-outline"} ms-btn-sm" onclick="toggleNoWasteToday()">
+                    ${doneToday ? "✓ بطل اليوم! (بدون تبذير)" : "🛡️ يوم بدون مصاريف زائدة"}
+                  </button>
+                  <span style="font-size:11px;color:var(--ms-muted);font-weight:600">هذا الشهر: ${monthCount} يوم</span>
+                </div>`;
+              })()}
             </div>
           </div>
 

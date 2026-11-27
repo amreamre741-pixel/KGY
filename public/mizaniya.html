@@ -734,16 +734,18 @@
         const doAutoSave = type === "income" && document.getElementById("txAutoSave")?.checked && pct > 0 && boxWallet && boxWallet.id !== walletId;
         const savedPart = doAutoSave ? Math.round(amount * pct / 100) : 0;
         const spendPart = amount - savedPart;
+        const savedWalletId = doAutoSave && boxWallet ? boxWallet.id : "";
 
         state.wallets = state.wallets.map(w => {
-          if (type === "expense" && w.id === walletId) return { ...w, balance: w.balance - amount };
+          const bal = Number(w.balance) || 0;
+          if (type === "expense" && w.id === walletId) return { ...w, balance: bal - amount };
           if (type === "income") {
-            if (w.id === walletId) return { ...w, balance: w.balance + spendPart };
-            if (doAutoSave && w.id === boxWallet.id) return { ...w, balance: w.balance + savedPart };
+            if (w.id === walletId) return { ...w, balance: bal + spendPart };
+            if (doAutoSave && w.id === savedWalletId) return { ...w, balance: bal + savedPart };
           }
           if (type === "transfer") {
-            if (w.id === walletId) return { ...w, balance: w.balance - amount };
-            if (w.id === toWalletId) return { ...w, balance: w.balance + amount };
+            if (w.id === walletId) return { ...w, balance: bal - amount };
+            if (w.id === toWalletId) return { ...w, balance: bal + amount };
           }
           return w;
         });
@@ -752,6 +754,8 @@
           id: "tx_" + Date.now(), type, amount, categoryId,
           itemEmoji: pickedEmoji,
           walletId, toWalletId,
+          savedPart: savedPart > 0 ? savedPart : 0,
+          savedWalletId: savedPart > 0 ? savedWalletId : "",
           note: note || (doAutoSave ? `أجرة اليوم (ادخار ${fmt(savedPart)})` : ""),
           date,
         });
@@ -760,18 +764,67 @@
       };
     };
 
+    function getTxAutoSaveSplit(tx) {
+      const amt = Number(tx.amount) || 0;
+      if (tx.type !== "income") return { spendPart: amt, savedPart: 0, savedWalletId: "" };
+      let savedPart = Number(tx.savedPart) || 0;
+      let savedWalletId = tx.savedWalletId || "";
+      // Backward compatibility for older auto-saved income transactions before v15
+      if (savedPart === 0 && tx.note && tx.note.includes("ادخار")) {
+        const m = tx.note.match(/ادخار\s*([\d\s,\u00A0\u202F]+)/);
+        if (m) {
+          const parsed = Number(m[1].replace(/[^\d]/g, ""));
+          if (parsed > 0 && parsed <= amt) {
+            savedPart = parsed;
+            const boxW = state.wallets.find(w => w.id === "w_box");
+            if (boxW && boxW.id !== tx.walletId) savedWalletId = boxW.id;
+          }
+        }
+      }
+      if (!savedWalletId || savedWalletId === tx.walletId) savedPart = 0;
+      return { spendPart: amt - savedPart, savedPart, savedWalletId };
+    }
+
+    function applyWalletDelta(wallets, walletId, delta) {
+      if (!delta) return wallets;
+      const targetExists = wallets.some(w => w.id === walletId);
+      const fallbackId = wallets[0]?.id;
+      const resolvedId = targetExists ? walletId : fallbackId;
+      return wallets.map(w => w.id === resolvedId ? { ...w, balance: (Number(w.balance) || 0) + delta } : w);
+    }
+
     window.deleteTx = (id) => {
       const tx = state.transactions.find(t => t.id === id);
       if (!tx) return;
-      state.wallets = state.wallets.map(w => {
-        if (tx.type === "expense" && w.id === tx.walletId) return { ...w, balance: w.balance + tx.amount };
-        if (tx.type === "income" && w.id === tx.walletId) return { ...w, balance: w.balance - tx.amount };
-        if (tx.type === "transfer") {
-          if (w.id === tx.walletId) return { ...w, balance: w.balance + tx.amount };
-          if (w.id === tx.toWalletId) return { ...w, balance: w.balance - tx.amount };
+      if (!confirm("هل تريد حذف هذه العملية وإرجاع المبلغ بدقة إلى المحفظة؟")) return;
+      const amt = Number(tx.amount) || 0;
+      let nextWallets = state.wallets;
+      if (tx.type === "expense") {
+        nextWallets = applyWalletDelta(nextWallets, tx.walletId, +amt);
+      } else if (tx.type === "income") {
+        const { spendPart, savedPart, savedWalletId } = getTxAutoSaveSplit(tx);
+        nextWallets = applyWalletDelta(nextWallets, tx.walletId, -spendPart);
+        if (savedPart > 0 && savedWalletId) {
+          nextWallets = applyWalletDelta(nextWallets, savedWalletId, -savedPart);
         }
-        return w;
-      });
+      } else if (tx.type === "transfer") {
+        nextWallets = applyWalletDelta(nextWallets, tx.walletId, +amt);
+        nextWallets = applyWalletDelta(nextWallets, tx.toWalletId, -amt);
+      }
+      state.wallets = nextWallets;
+      // Revert linked fixed bill or shopping item if this transaction created it
+      if (tx.fixedBillId) {
+        state.fixedBills = state.fixedBills.map(b =>
+          b.id === tx.fixedBillId
+            ? { ...b, lastPaidMonth: tx.prevPaidUntilMonth || "", paidUntilMonth: tx.prevPaidUntilMonth || "" }
+            : b
+        );
+      }
+      if (tx.shoppingItemId) {
+        state.shoppingList = state.shoppingList.map(s =>
+          s.id === tx.shoppingItemId ? { ...s, done: false } : s
+        );
+      }
       state.transactions = state.transactions.filter(t => t.id !== id);
       save();
     };
@@ -795,19 +848,42 @@
         e.preventDefault();
         const newAmt = Number(document.getElementById("etxAmt").value);
         if (!newAmt || newAmt <= 0) return;
-        const diff = newAmt - tx.amount;
-        state.wallets = state.wallets.map(w => {
-          if (tx.type === "expense" && w.id === tx.walletId) return { ...w, balance: w.balance - diff };
-          if (tx.type === "income" && w.id === tx.walletId) return { ...w, balance: w.balance + diff };
-          if (tx.type === "transfer") {
-            if (w.id === tx.walletId) return { ...w, balance: w.balance - diff };
-            if (w.id === tx.toWalletId) return { ...w, balance: w.balance + diff };
+        const oldAmt = Number(tx.amount) || 0;
+        let nextWallets = state.wallets;
+        let newSavedPart = Number(tx.savedPart) || 0;
+        let savedWalletId = tx.savedWalletId || "";
+
+        if (tx.type === "expense") {
+          nextWallets = applyWalletDelta(nextWallets, tx.walletId, oldAmt - newAmt);
+        } else if (tx.type === "income") {
+          const oldSplit = getTxAutoSaveSplit(tx);
+          // Reverse exact old split
+          nextWallets = applyWalletDelta(nextWallets, tx.walletId, -oldSplit.spendPart);
+          if (oldSplit.savedPart > 0 && oldSplit.savedWalletId) {
+            nextWallets = applyWalletDelta(nextWallets, oldSplit.savedWalletId, -oldSplit.savedPart);
           }
-          return w;
-        });
+          // Apply new split proportionally if it was auto-saved
+          savedWalletId = oldSplit.savedWalletId;
+          newSavedPart = (oldSplit.savedPart > 0 && oldAmt > 0)
+            ? Math.round((oldSplit.savedPart / oldAmt) * newAmt)
+            : 0;
+          const newSpendPart = newAmt - newSavedPart;
+          nextWallets = applyWalletDelta(nextWallets, tx.walletId, +newSpendPart);
+          if (newSavedPart > 0 && savedWalletId) {
+            nextWallets = applyWalletDelta(nextWallets, savedWalletId, +newSavedPart);
+          }
+        } else if (tx.type === "transfer") {
+          const diff = newAmt - oldAmt;
+          nextWallets = applyWalletDelta(nextWallets, tx.walletId, -diff);
+          nextWallets = applyWalletDelta(nextWallets, tx.toWalletId, +diff);
+        }
+
+        state.wallets = nextWallets;
         state.transactions = state.transactions.map(t => t.id === id ? {
           ...t,
           amount: newAmt,
+          savedPart: newSavedPart,
+          savedWalletId,
           date: document.getElementById("etxDate").value || t.date,
           note: document.getElementById("etxNote").value.trim(),
         } : t);
@@ -847,10 +923,10 @@
         const amt = Number(document.getElementById("buyAmt").value);
         const wid = document.getElementById("buyWal").value;
         state.shoppingList = state.shoppingList.map(s => s.id === id ? { ...s, done: true } : s);
-        state.wallets = state.wallets.map(w => w.id === wid ? { ...w, balance: w.balance - amt } : w);
+        state.wallets = applyWalletDelta(state.wallets, wid, -amt);
         state.transactions.unshift({
           id: "tx_" + Date.now(), type: "expense", amount: amt, categoryId: "groceries",
-          itemEmoji: item.emoji, walletId: wid, note: item.name, date: todayISO(),
+          itemEmoji: item.emoji, walletId: wid, shoppingItemId: id, note: item.name, date: todayISO(),
         });
         closeModal();
         save();
@@ -918,17 +994,23 @@
       document.getElementById("sdForm").onsubmit = (e) => {
         e.preventDefault();
         const wid = document.getElementById("sdWal").value;
-        state.debts = state.debts.map(x => x.id === id ? { ...x, paid: true } : x);
-        state.wallets = state.wallets.map(w => {
-          if (w.id !== wid) return w;
-          return { ...w, balance: d.type === "lent" ? w.balance + d.amount : w.balance - d.amount };
-        });
+        state.debts = state.debts.map(x => x.id === id ? { ...x, paid: true, settledWalletId: wid } : x);
+        state.wallets = applyWalletDelta(state.wallets, wid, d.type === "lent" ? +Number(d.amount) : -Number(d.amount));
         closeModal();
         save();
       };
     };
 
-    window.deleteDebt = (id) => { state.debts = state.debts.filter(d => d.id !== id); save(); };
+    window.deleteDebt = (id) => {
+      const d = state.debts.find(x => x.id === id);
+      if (!d) return;
+      if (!confirm("هل تريد حذف هذا السجل من دفتر الديون؟")) return;
+      if (d.paid && d.settledWalletId && confirm("هذا الدين تم تسديده مسبقاً — هل تريد أيضاً إلغاء أثره من المحفظة؟")) {
+        state.wallets = applyWalletDelta(state.wallets, d.settledWalletId, d.type === "lent" ? -Number(d.amount) : +Number(d.amount));
+      }
+      state.debts = state.debts.filter(x => x.id !== id);
+      save();
+    };
 
     // --- Fixed Monthly Bills (المصاريف الثابتة) ---
     window.openFixedBillModal = () => {
@@ -1001,11 +1083,14 @@
           : monthKey;
         const newPaidUntil = shiftMonth(startMonth, months - 1);
 
+        const prevPaidUntil = fb.paidUntilMonth || fb.lastPaidMonth || "";
         state.fixedBills = state.fixedBills.map(b => b.id === id ? { ...b, lastPaidMonth: newPaidUntil, paidUntilMonth: newPaidUntil } : b);
-        state.wallets = state.wallets.map(w => w.id === wid ? { ...w, balance: w.balance - totalAmt } : w);
+        state.wallets = applyWalletDelta(state.wallets, wid, -totalAmt);
         state.transactions.unshift({
           id: "tx_" + Date.now(), type: "expense", amount: totalAmt, categoryId: fb.categoryId,
           itemEmoji: fb.emoji, walletId: wid,
+          fixedBillId: id,
+          prevPaidUntilMonth: prevPaidUntil,
           note: months > 1 ? `${fb.title} (${months} أشهر)` : fb.title,
           date: todayISO(),
         });
@@ -1290,14 +1375,28 @@
       document.getElementById("fgForm").onsubmit = (e) => {
         e.preventDefault();
         const amt = Number(document.getElementById("fgAmt").value);
+        if (!amt || amt <= 0) return;
         const wid = document.getElementById("fgWal").value;
-        state.goals = state.goals.map(g => g.id === goalId ? { ...g, saved: g.saved + amt } : g);
-        state.wallets = state.wallets.map(w => w.id === wid ? { ...w, balance: w.balance - amt } : w);
+        state.goals = state.goals.map(g => g.id === goalId ? { ...g, saved: (Number(g.saved) || 0) + amt, lastWalletId: wid } : g);
+        state.wallets = applyWalletDelta(state.wallets, wid, -amt);
         closeModal(); save();
       };
     };
 
-    window.deleteGoal = (id) => { state.goals = state.goals.filter(g => g.id !== id); save(); };
+    window.deleteGoal = (id) => {
+      const g = state.goals.find(x => x.id === id);
+      if (!g) return;
+      const savedAmt = Number(g.saved) || 0;
+      if (savedAmt > 0) {
+        if (!confirm(`هل تريد حذف الهدف "${g.title}"؟ سيتم إرجاع المبلغ المدّخر (${fmt(savedAmt)}) إلى محفظتك.`)) return;
+        const targetWal = g.lastWalletId || state.wallets.find(w => w.id === "w_box")?.id || state.wallets[0]?.id;
+        state.wallets = applyWalletDelta(state.wallets, targetWal, +savedAmt);
+      } else {
+        if (!confirm(`هل تريد حذف الهدف "${g.title}"؟`)) return;
+      }
+      state.goals = state.goals.filter(x => x.id !== id);
+      save();
+    };
     window.updateBudget = (catId, val) => { state.budgets[catId] = Math.max(0, Number(val) || 0); save(); };
 
     function render() {

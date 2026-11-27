@@ -471,10 +471,45 @@
       return totalDays;
     }
 
+    let _uidSeq = 0;
+    function uid(prefix) {
+      _uidSeq += 1;
+      return `${prefix}_${Date.now()}_${_uidSeq}_${Math.floor(Math.random() * 1000)}`;
+    }
+
+    function sanitizeState(st) {
+      const seenTxIds = new Set();
+      st.wallets = (Array.isArray(st.wallets) && st.wallets.length > 0 ? st.wallets : defaultState().wallets).map(w => ({
+        ...w,
+        balance: Number.isFinite(Number(w.balance)) ? Number(w.balance) : 0,
+      }));
+      st.transactions = (Array.isArray(st.transactions) ? st.transactions : []).map(t => {
+        let id = t.id || uid("tx");
+        if (seenTxIds.has(id)) id = uid("tx");
+        seenTxIds.add(id);
+        return {
+          ...t,
+          id,
+          amount: Number.isFinite(Number(t.amount)) ? Math.abs(Number(t.amount)) : 0,
+          savedPart: Number.isFinite(Number(t.savedPart)) ? Math.max(0, Number(t.savedPart)) : 0,
+        };
+      });
+      st.goals = (Array.isArray(st.goals) ? st.goals : []).map(g => ({
+        ...g,
+        target: Number.isFinite(Number(g.target)) ? Math.max(1, Number(g.target)) : 1,
+        saved: Number.isFinite(Number(g.saved)) ? Math.max(0, Number(g.saved)) : 0,
+      }));
+      st.debts = (Array.isArray(st.debts) ? st.debts : []).map(d => ({
+        ...d,
+        amount: Number.isFinite(Number(d.amount)) ? Math.max(0, Number(d.amount)) : 0,
+      }));
+      return st;
+    }
+
     let state = defaultState();
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) state = { ...defaultState(), ...JSON.parse(saved) };
+      if (saved) state = sanitizeState({ ...defaultState(), ...JSON.parse(saved) });
     } catch {}
 
     let activeTab = "dashboard";
@@ -728,6 +763,10 @@
         if (!amount || amount <= 0) return;
         const walletId = document.getElementById("txWallet").value;
         const toWalletId = type === "transfer" ? document.getElementById("txToWallet").value : undefined;
+        if (type === "transfer" && walletId === toWalletId) {
+          alert("اختر محفظتين مختلفتين للتحويل بينهما.");
+          return;
+        }
         const categoryId = type === "transfer" ? "transfer" : document.getElementById("txCat").value;
         const note = document.getElementById("txNote").value.trim();
         const date = document.getElementById("txDate").value || todayISO();
@@ -751,7 +790,7 @@
         });
         const pickedEmoji = selectedSubItems.length === 1 ? selectedSubItems[0].emoji : selectedSubItems.length > 1 ? "🛒" : undefined;
         state.transactions.unshift({
-          id: "tx_" + Date.now(), type, amount, categoryId,
+          id: uid("tx"), type, amount, categoryId,
           itemEmoji: pickedEmoji,
           walletId, toWalletId,
           savedPart: savedPart > 0 ? savedPart : 0,
@@ -1157,10 +1196,16 @@
         alert("يجب أن تبقى لديك محفظة واحدة على الأقل.");
         return;
       }
-      if (confirm("هل تريد حذف هذه المحفظة؟")) {
-        state.wallets = state.wallets.filter(w => w.id !== id);
-        save();
+      const target = state.wallets.find(w => w.id === id);
+      if (!target) return;
+      const bal = Number(target.balance) || 0;
+      if (!confirm(`هل تريد حذف محفظة "${target.name}"؟`)) return;
+      const remaining = state.wallets.filter(w => w.id !== id);
+      if (bal !== 0 && confirm(`هذه المحفظة تحتوي على رصيد (${fmt(bal)}). هل تريد تحويل رصيدها إلى "${remaining[0].name}" قبل الحذف؟`)) {
+        remaining[0] = { ...remaining[0], balance: (Number(remaining[0].balance) || 0) + bal };
       }
+      state.wallets = remaining;
+      save();
     };
 
     window.runQuickSpend = (id) => {
@@ -1168,9 +1213,11 @@
       if (!qs) return;
       const wid = state.wallets[0]?.id;
       if (!wid) return;
-      state.wallets = state.wallets.map(w => w.id === wid ? { ...w, balance: w.balance - qs.amount } : w);
+      const amt = Number(qs.amount) || 0;
+      if (amt <= 0) return;
+      state.wallets = applyWalletDelta(state.wallets, wid, -amt);
       state.transactions.unshift({
-        id: "tx_" + Date.now(), type: "expense", amount: qs.amount, categoryId: qs.categoryId || "groceries",
+        id: uid("tx"), type: "expense", amount: amt, categoryId: qs.categoryId || "groceries",
         itemEmoji: qs.emoji, walletId: wid, note: qs.label, date: todayISO(),
       });
       save();
